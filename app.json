@@ -58,6 +58,12 @@
         {
           "locationWhenInUsePermission": "현재 위치의 날씨와 미세먼지 정보를 제공합니다."
         }
+      ],
+      [
+        "expo-sensors",
+        {
+          "motionPermission": "농구 세션에서 점프와 스프린트를 자동 감지하기 위해 동작 데이터를 사용합니다."
+        }
       ]
     ],
     "experiments": {

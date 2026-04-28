@@ -2,7 +2,7 @@
 
 교대근무자를 위한 스마트 운동 파트너 앱.
 
-수면, HRV, 안정시 심박, 최근 운동 기록을 바탕으로 매일의 **훈련 준비 점수**를 계산하고, 교대 근무 패턴에 따라 보충제 알림과 모닝 리포트를 자동 조정해주는 React Native 앱입니다.
+수면, HRV, 안정시 심박, 최근 운동 기록을 바탕으로 매일의 **훈련 준비 점수**를 계산하고, 교대 근무 패턴에 따라 보충제 알림과 모닝 리포트를 자동 조정해주는 React Native 앱입니다. **러닝과 농구** 두 가지 운동 모드로 실시간 트래킹과 세션 리포트를 제공합니다.
 
 ## 주요 기능
 
@@ -23,6 +23,45 @@
   - "{이름}님, 좋은 아침이에요!" 인사말
   - 훈련 준비 점수 + 컨디션 + 추천 훈련 + 날씨 + 오늘 보충제 (시간순)
 
+### 운동 탭 — 러닝 / 농구
+
+운동 탭 상단에서 **러닝 / 농구** 모드를 선택해 시작합니다.
+
+#### 러닝 모드
+- 시작 화면: 거리 (5km / 10km / 직접) + 목표 시간 (프로필 자동 또는 직접) + 페이스 가이드 토글 + 러닝화 선택
+- **PacePro 4구간 페이스 분배**:
+  - 0~20% 워밍업 (목표 +15초)
+  - 20~70% 메인 (목표)
+  - 70~90% 유지 (목표 −5초)
+  - 90~100% 마무리 (목표 −10초)
+- 라이브 세션 (GPS + HealthKit HR 폴링):
+  - 현재 거리/페이스/목표 대비 ±초/예상 완주 시간
+  - 심박수 + Zone 인디케이터 (Z1~Z5)
+  - PacePro 진행 커서
+- 종료 리포트:
+  - 거리·시간·평균 페이스, 목표 달성 배지
+  - 평균/최고 심박, Zone 분포 바 + 범례
+  - 케이던스 / GCT / 수직진폭 (Apple Watch 기록 있을 때)
+  - 이전 동일 거리 세션 비교 (±10%)
+  - 자동 생성 한줄 피드백
+  - **신발 km 자동 누적**
+
+#### 농구 모드
+- 시작 화면: 쿼터 시간 (10분 / 12분 / 무제한 / 직접) + 예상 쿼터 수
+- 라이브 세션:
+  - 쿼터 번호 + 남은/경과 시간 (총 경과 시간)
+  - 실시간 심박 + Zone
+  - **CoreMotion 기반 점프/스프린트 자동 카운트** (DeviceMotion 50Hz)
+  - 쿼터 종료 / 세션 종료 두 버튼
+- 쿼터 종료 모달: 평균/최고 심박, Zone 분포, 점프/스프린트, 한줄 평가
+- 종료 리포트:
+  - 총 시간 + 칼로리 (심박 기반 추정)
+  - 활동량: 점프/스프린트/평균·최고 심박
+  - 심박 Zone 분포 바
+  - **유산소/무산소 별점** (Z2-3 / Z4-5 비중 0~5점)
+  - 쿼터별 심박 추이 막대 차트
+  - **내일 훈련 권장** (오늘 부하 점수 기반)
+
 ### 교대 근무 패턴
 - 8일 사이클 (기본: 주주휴휴야야휴휴) 직접 편집
 - 사이클 시작일, 주간/야간 시작·끝 시간 모두 설정 가능
@@ -35,14 +74,20 @@
 - 각 타이밍별 기본 시간 사용자 설정 가능
 - 향후 7일치 알림 자동 예약, 설정 변경 시 즉시 재예약
 
+### 신발 관리
+- 등록/수정/삭제, 활성 토글, 누적 km 자동 추적
+- 목표 km 설정 시 진행도 바 표시 (85% 초과 시 빨강)
+- 러닝 세션 종료 시 선택한 신발에 거리 자동 누적
+
 ## 기술 스택
 
 - **프레임워크**: React Native 0.74 + Expo SDK 51
 - **네비게이션**: Expo Router (파일 기반)
 - **로컬 DB**: expo-sqlite
 - **알림**: expo-notifications (kind 태그 기반 분리 관리)
-- **위치**: expo-location + Open-Meteo API
+- **위치/GPS**: expo-location + Open-Meteo API
 - **건강 데이터**: @kingstinct/react-native-healthkit (iOS HealthKit)
+- **동작 감지**: expo-sensors (DeviceMotion / CoreMotion)
 - **시간 입력**: @react-native-community/datetimepicker (네이티브 스피너)
 - **언어**: TypeScript (strict mode)
 
@@ -85,6 +130,52 @@
 | 운동 전/후 | 기본 | 기본 | +2시간 |
 | 취침 전 | 기본 | 주간 시작 +2시간 (퇴근 후) | +2시간 |
 
+## 심박 Zone 계산
+
+`user_profile.max_heart_rate` 기반 5단계.
+
+| Zone | 비율 | 설명 |
+|---|---|---|
+| Z1 | <50% | 매우 가벼움 |
+| Z2 | 50~60% | 가벼운 유산소 |
+| Z3 | 60~70% | 중강도 유산소 |
+| Z4 | 70~85% | 역치 |
+| Z5 | ≥85% | 최대 |
+
+## 농구 동작 감지
+
+DeviceMotion 50Hz 가속도 샘플링.
+
+```
+mag_g  = sqrt(x² + y² + z²) / 9.81  (전체 합성)
+horiz_g = sqrt(x² + y²) / 9.81      (수평 성분)
+
+점프:    mag_g > jumpG → prev보다 감소 + jumpG×0.7 이하 → 800ms 쿨다운 후 카운트
+스프린트: horiz_g > sprintG → 800ms 쿨다운 후 카운트
+```
+
+기본 임계값: **점프 2.5g / 스프린트 1.8g**, 설정에서 조정 가능.
+
+### 유산소/무산소 별점
+
+| Z2+Z3 또는 Z4+Z5 비중 | 별점 |
+|---|---|
+| ≥60% | 5 |
+| 40~60% | 4 |
+| 25~40% | 3 |
+| 15~25% | 2 |
+| 5~15% | 1 |
+| <5% | 0 |
+
+### 내일 훈련 권장 (부하 점수)
+
+`load = minutes × (1 + Z4-Z5 비중 × 1.5)`
+
+- ≥90 → 휴식 권고
+- ≥60 → 가벼운 훈련 (Zone 2 조깅 30분)
+- ≥30 → 일반 훈련 가능
+- 그 미만 → 추가 훈련 가능
+
 ## 프로젝트 구조
 
 ```
@@ -92,10 +183,14 @@ fitlog/
 ├── app/                              # Expo Router (라우팅)
 │   ├── _layout.tsx                   # 루트 레이아웃 + 알림 응답 핸들러
 │   ├── morning-report.tsx            # 모닝 리포트 상세 화면
+│   ├── running-session.tsx           # 러닝 라이브 세션
+│   ├── running-report.tsx            # 러닝 종료 리포트
+│   ├── basketball-session.tsx        # 농구 라이브 세션
+│   ├── basketball-report.tsx         # 농구 종료 리포트
 │   └── (tabs)/
 │       ├── _layout.tsx               # 4개 탭 정의
 │       ├── index.tsx                 # 홈
-│       ├── workout.tsx               # 운동 (placeholder)
+│       ├── workout.tsx               # 운동 (러닝/농구 토글)
 │       ├── analytics.tsx             # 분석 (placeholder)
 │       └── settings.tsx              # 설정
 ├── src/
@@ -103,14 +198,18 @@ fitlog/
 │   ├── types.ts                      # 도메인 타입
 │   ├── lib/
 │   │   ├── readiness.ts              # 점수 계산, 추천 훈련
+│   │   ├── pace.ts                   # 페이스 / Zone / PacePro / 하버사인
+│   │   ├── motion.ts                 # DeviceMotion 점프·스프린트 감지
+│   │   ├── basketball.ts             # 칼로리 / 별점 / 내일 권장
 │   │   └── time.ts                   # HH:MM ↔ Date 변환
 │   ├── services/
-│   │   ├── db.ts                     # SQLite (8개 테이블)
+│   │   ├── db.ts                     # SQLite (12개 테이블)
 │   │   ├── health.ts                 # HealthKit + mock fallback
 │   │   ├── shift.ts                  # 사이클 계산, 오늘 근무 유형
 │   │   ├── notifications.ts          # 보충제 + 모닝 리포트 스케줄링
 │   │   ├── location.ts               # expo-location + 기본 좌표
-│   │   └── weather.ts                # Open-Meteo + 대기질
+│   │   ├── weather.ts                # Open-Meteo + 대기질
+│   │   └── running.ts                # GPS 워처 + HR 폴링
 │   └── components/
 │       ├── Card.tsx
 │       ├── ConditionCard.tsx
@@ -122,12 +221,24 @@ fitlog/
 │       ├── TimePickerRow.tsx
 │       ├── WeatherCard.tsx
 │       ├── WorkoutRecommendCard.tsx
+│       ├── running/
+│       │   ├── StartForm.tsx
+│       │   ├── DistancePicker.tsx
+│       │   ├── ShoePicker.tsx
+│       │   ├── PaceProBar.tsx
+│       │   ├── HrZoneIndicator.tsx
+│       │   └── ZoneDistributionBar.tsx
+│       ├── basketball/
+│       │   ├── StartForm.tsx
+│       │   └── StarRating.tsx
 │       └── settings/
 │           ├── UserProfileSection.tsx
 │           ├── ShiftSection.tsx
 │           ├── MorningReportSection.tsx
 │           ├── SupplementTimesSection.tsx
-│           └── SupplementsSection.tsx
+│           ├── SupplementsSection.tsx
+│           ├── ShoesSection.tsx
+│           └── BasketballThresholdsSection.tsx
 └── package.json
 ```
 
@@ -139,8 +250,12 @@ fitlog/
 | `shift_config` | 교대 사이클, 시작일, 근무 시간 (단일 행) |
 | `supplements` | 보충제 목록 (이름, 용량, 타이밍, 교대연동, 활성) |
 | `supplement_base_times` | 4가지 타이밍 기본 시간 (단일 행) |
-| `user_profile` | 이름, 5k 목표 시간 (단일 행) |
+| `user_profile` | 이름, 5k/10k 목표, 최대 심박 (단일 행) |
 | `morning_report_config` | 알림 시간, 야간 스킵, +2h 옵션 (단일 행) |
+| `shoes` | 러닝화 (이름, 브랜드, 누적 km, 목표 km, 활성) |
+| `running_sessions` | 러닝 세션 기록 (거리, 시간, 페이스, HR, Zone, 다이내믹스, 신발) |
+| `basketball_sessions` | 농구 세션 기록 (쿼터 JSON, 점프/스프린트, HR, 별점, 내일 권장) |
+| `basketball_config` | 점프/스프린트 임계값 (단일 행) |
 
 ## 시작하기
 
@@ -151,7 +266,7 @@ npm install
 # 개발 서버
 npx expo start
 
-# iOS dev client (HealthKit 사용시 필수)
+# iOS dev client (HealthKit, CoreMotion 사용시 필수)
 npx expo prebuild
 npx expo run:ios
 ```
@@ -159,8 +274,11 @@ npx expo run:ios
 ### 주의사항
 
 - **HealthKit**은 Expo Go에서 동작하지 않습니다. `expo prebuild` + 실기기 또는 개발 빌드가 필요합니다. 시뮬레이터/Expo Go에서는 자동으로 mock 데이터로 fallback 됩니다.
+- **GPS**는 시뮬레이터에서 거의 안 옵니다. 실기기 또는 시뮬레이터 "Custom Location" 시뮬레이션 사용 권장.
+- **CoreMotion (점프/스프린트)**은 시뮬레이터에서 동작하지 않습니다. 실기기 + 동작 권한 허용이 필요합니다. 권한 거부 시에도 다른 기능은 정상 동작합니다.
 - **알림**은 Expo Go/시뮬레이터에서도 로컬 알림으로 동작하지만, 실기기 테스트가 권장됩니다.
 - **위치 권한 거부 시** 기본 좌표(33.4637, 126.3379)로 날씨 조회.
+- **러닝 트래킹은 포그라운드만** 지원합니다. 화면 켜짐 유지를 권장합니다.
 
 ## 개발 변경 이력
 
@@ -191,8 +309,27 @@ npx expo run:ios
 - 5k 목표 기반 페이스 추천 (목표 −10s/+20s/+60s)
 - 보충제/모닝 알림 분리 관리 (kind 태그 기반)
 
+### Phase 5 — 러닝 모드
+- `user_profile`에 `max_heart_rate`, `running_goal_10k` 컬럼 추가 (마이그레이션)
+- 신규 테이블: `shoes`, `running_sessions`
+- 시작 화면: 거리/시간/페이스 가이드/신발 선택, 오늘 점수 표시
+- PacePro 4구간 자동 계산
+- 라이브 세션: GPS 워처 + HealthKit HR 폴링 (5초)
+- 리포트: Zone 분포, 다이내믹스, 이전 세션 비교, 신발 km 자동 누적
+- 자동 한줄 피드백 (페이스/Zone/GCT 기반)
+
+### Phase 6 — 농구 모드
+- expo-sensors 도입, app.json에 motion 권한 추가
+- 신규 테이블: `basketball_sessions`, `basketball_config`
+- 운동 탭을 [러닝 | 농구] 세그먼트 토글로 변경, 러닝 시작 폼 컴포넌트로 추출
+- 시작 화면: 쿼터 시간(10/12/무제한/직접) + 예상 쿼터 수
+- 라이브 세션: 쿼터 카운터, 실시간 심박/Zone, CoreMotion 점프/스프린트 카운트
+- 쿼터 종료 모달 → 다음 쿼터 / 세션 종료
+- 리포트: 칼로리(HR 기반), Zone 분포, 유산소/무산소 별점, 쿼터별 심박 추이, 내일 훈련 권장
+
 ## 향후 계획
 
-- 운동 탭 (러닝/농구 기록)
-- 분석 탭 (점수 트렌드, 컨디션 차트)
+- 분석 탭 (점수/페이스/심박 트렌드, 컨디션 차트)
+- 백그라운드 GPS 트래킹 (실내/긴 세션 대응)
+- 세션 히스토리 리스트 (러닝/농구)
 - watchOS 컴패니언 앱 (홈 화면 점수 표시)

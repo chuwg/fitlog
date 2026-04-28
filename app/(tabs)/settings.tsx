@@ -7,26 +7,34 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { BasketballThresholdsSection } from '../../src/components/settings/BasketballThresholdsSection';
 import { MorningReportSection } from '../../src/components/settings/MorningReportSection';
 import { ShiftSection } from '../../src/components/settings/ShiftSection';
+import { ShoesSection } from '../../src/components/settings/ShoesSection';
 import { SupplementTimesSection } from '../../src/components/settings/SupplementTimesSection';
 import { SupplementsSection } from '../../src/components/settings/SupplementsSection';
 import { UserProfileSection } from '../../src/components/settings/UserProfileSection';
 import { recommendWorkout } from '../../src/lib/readiness';
 import {
+  deleteShoe,
   deleteSupplement,
   ensureDefaultSupplements,
   getLatestDailyScore,
+  insertShoe,
   insertSupplement,
+  listShoes,
   listSupplements,
+  loadBasketballThresholds,
   loadMorningReportConfig,
   loadShiftConfig,
   loadSupplementBaseTimes,
   loadUserProfile,
+  saveBasketballThresholds,
   saveMorningReportConfig,
   saveShiftConfig,
   saveSupplementBaseTimes,
   saveUserProfile,
+  updateShoe,
   updateSupplement,
 } from '../../src/services/db';
 import {
@@ -39,9 +47,11 @@ import { defaultShiftConfig, shiftKindForDate } from '../../src/services/shift';
 import { fetchWeather } from '../../src/services/weather';
 import { colors, spacing } from '../../src/theme/colors';
 import type {
+  BasketballThresholds,
   MorningReportConfig,
   ReadinessStatus,
   ShiftConfig,
+  Shoe,
   Supplement,
   SupplementBaseTimes,
   UserProfile,
@@ -94,6 +104,9 @@ export default function SettingsScreen() {
   const [baseTimes, setBaseTimes] = useState<SupplementBaseTimes | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [reportConfig, setReportConfig] = useState<MorningReportConfig | null>(null);
+  const [shoes, setShoes] = useState<Shoe[]>([]);
+  const [basketballThresh, setBasketballThresh] =
+    useState<BasketballThresholds | null>(null);
   const [loading, setLoading] = useState(true);
   const [scheduledSupp, setScheduledSupp] = useState<number | null>(null);
   const [scheduledMorning, setScheduledMorning] = useState<number | null>(null);
@@ -119,7 +132,7 @@ export default function SettingsScreen() {
 
   useEffect(() => {
     (async () => {
-      const [cfg, list, times, prof, report] = await Promise.all([
+      const [cfg, list, times, prof, report, shoeList, thresh] = await Promise.all([
         loadShiftConfig(),
         (async () => {
           await ensureDefaultSupplements();
@@ -128,6 +141,8 @@ export default function SettingsScreen() {
         loadSupplementBaseTimes(),
         loadUserProfile(),
         loadMorningReportConfig(),
+        listShoes(false),
+        loadBasketballThresholds(),
       ]);
       const resolvedCfg = cfg ?? defaultShiftConfig();
       setConfig(resolvedCfg);
@@ -135,6 +150,8 @@ export default function SettingsScreen() {
       setBaseTimes(times);
       setProfile(prof);
       setReportConfig(report);
+      setShoes(shoeList);
+      setBasketballThresh(thresh);
       setLoading(false);
       ensureNotificationPermission()
         .then(() => rescheduleAll(list, resolvedCfg, times, report, prof))
@@ -215,12 +232,44 @@ export default function SettingsScreen() {
     [baseTimes, config, profile, rescheduleAll, reportConfig, supplements],
   );
 
+  const handleShoeCreate = useCallback(
+    async (input: Omit<Shoe, 'id'>) => {
+      const id = await insertShoe(input);
+      setShoes([...shoes, { ...input, id }]);
+    },
+    [shoes],
+  );
+
+  const handleShoeUpdate = useCallback(
+    async (s: Shoe) => {
+      await updateShoe(s);
+      setShoes(shoes.map((x) => (x.id === s.id ? s : x)));
+    },
+    [shoes],
+  );
+
+  const handleShoeDelete = useCallback(
+    async (id: number) => {
+      await deleteShoe(id);
+      setShoes(shoes.filter((x) => x.id !== id));
+    },
+    [shoes],
+  );
+
+  const handleBasketballThresh = useCallback(
+    async (next: BasketballThresholds) => {
+      setBasketballThresh(next);
+      await saveBasketballThresholds(next);
+    },
+    [],
+  );
+
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <ScrollView contentContainerStyle={styles.container}>
         <Text style={styles.title}>설정</Text>
 
-        {loading || !config || !baseTimes || !profile || !reportConfig ? (
+        {loading || !config || !baseTimes || !profile || !reportConfig || !basketballThresh ? (
           <View style={styles.loading}>
             <ActivityIndicator color={colors.mint} />
           </View>
@@ -245,6 +294,16 @@ export default function SettingsScreen() {
               onCreate={handleCreate}
               onUpdate={handleUpdate}
               onDelete={handleDelete}
+            />
+            <ShoesSection
+              items={shoes}
+              onCreate={handleShoeCreate}
+              onUpdate={handleShoeUpdate}
+              onDelete={handleShoeDelete}
+            />
+            <BasketballThresholdsSection
+              value={basketballThresh}
+              onChange={handleBasketballThresh}
             />
             <Text style={styles.footer}>
               {scheduledSupp !== null && `보충제 알림 ${scheduledSupp}개`}

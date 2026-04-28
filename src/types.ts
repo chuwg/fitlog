@@ -84,10 +84,86 @@ export interface CycleDay {
 export interface UserProfile {
   name: string | null;
   runningGoal5kSeconds: number | null;
+  runningGoal10kSeconds: number | null;
+  maxHeartRate: number | null;
 }
 
 export interface MorningReportConfig {
   notificationTime: string;
   skipNight: boolean;
   adjustPostNight: boolean;
+}
+
+export interface Shoe {
+  id: number;
+  name: string;
+  brand: string | null;
+  currentKm: number;
+  targetKm: number | null;
+  isActive: boolean;
+}
+
+export type HrZone = 1 | 2 | 3 | 4 | 5;
+
+export type ZoneDistribution = Record<HrZone, number>;
+
+export interface RunningSession {
+  id: number;
+  startedAt: number;
+  endedAt: number;
+  distanceM: number;
+  durationS: number;
+  avgPaceSPerKm: number;
+  avgHr: number | null;
+  maxHr: number | null;
+  zoneDistribution: ZoneDistribution | null;
+  cadence: number | null;
+  gct: number | null;
+  verticalOscillation: number | null;
+  shoeId: number | null;
+  targetDistanceM: number | null;
+  targetTimeS: number | null;
+  achieved: boolean | null;
+  feedback: string | null;
+}
+
+export interface PaceSegment {
+  index: number;
+  startRatio: number;
+  endRatio: number;
+  paceSPerKm: number;
+  label: string;
+}
+
+export interface BasketballThresholds {
+  jumpG: number;
+  sprintG: number;
+  defaultQuarterS: number;
+}
+
+export interface QuarterStats {
+  index: number;
+  durationS: number;
+  avgHr: number | null;
+  maxHr: number | null;
+  zoneDistribution: ZoneDistribution | null;
+  jumps: number;
+  sprints: number;
+}
+
+export interface BasketballSession {
+  id: number;
+  startedAt: number;
+  endedAt: number;
+  durationS: number;
+  quarters: QuarterStats[];
+  totalJumps: number;
+  totalSprints: number;
+  avgHr: number | null;
+  maxHr: number | null;
+  zoneDistribution: ZoneDistribution | null;
+  caloriesKcal: number | null;
+  aerobicStars: number;
+  anaerobicStars: number;
+  tomorrowAdvice: string;
 }
