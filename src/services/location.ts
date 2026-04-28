@@ -1,8 +1,11 @@
 import * as Location from 'expo-location';
 
+export const DEFAULT_LOCATION_NAME = '제주 애월';
+
 export const DEFAULT_LOCATION = {
   latitude: 33.4637,
   longitude: 126.3379,
+  name: DEFAULT_LOCATION_NAME,
   isDefault: true as const,
 };
 
@@ -15,7 +18,13 @@ export interface ResolvedLocation {
 export async function resolveLocation(): Promise<ResolvedLocation> {
   try {
     const { status } = await Location.requestForegroundPermissionsAsync();
-    if (status !== 'granted') return { ...DEFAULT_LOCATION };
+    if (status !== 'granted') {
+      return {
+        latitude: DEFAULT_LOCATION.latitude,
+        longitude: DEFAULT_LOCATION.longitude,
+        isDefault: true,
+      };
+    }
 
     const position = await Location.getCurrentPositionAsync({
       accuracy: Location.Accuracy.Balanced,
@@ -26,7 +35,11 @@ export async function resolveLocation(): Promise<ResolvedLocation> {
       isDefault: false,
     };
   } catch {
-    return { ...DEFAULT_LOCATION };
+    return {
+      latitude: DEFAULT_LOCATION.latitude,
+      longitude: DEFAULT_LOCATION.longitude,
+      isDefault: true,
+    };
   }
 }
 

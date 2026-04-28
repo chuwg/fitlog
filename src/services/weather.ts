@@ -1,5 +1,5 @@
 import type { WeatherInfo } from '../types';
-import { resolveLocation, reverseGeocode } from './location';
+import { DEFAULT_LOCATION_NAME, resolveLocation, reverseGeocode } from './location';
 
 const WEATHER_CODE_KR: Record<number, string> = {
   0: '맑음',
@@ -57,7 +57,7 @@ export async function fetchWeather(): Promise<WeatherInfo> {
     windKmh: Math.round(Number(c.wind_speed_10m ?? 0)),
     pm25: airRes?.current?.pm2_5 != null ? Math.round(airRes.current.pm2_5) : undefined,
     pm10: airRes?.current?.pm10 != null ? Math.round(airRes.current.pm10) : undefined,
-    locationName: name ?? (loc.isDefault ? '제주' : '현재 위치'),
+    locationName: name ?? (loc.isDefault ? DEFAULT_LOCATION_NAME : '현재 위치'),
     isDefaultLocation: loc.isDefault,
   };
 }
