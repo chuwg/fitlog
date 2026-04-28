@@ -91,11 +91,15 @@ export interface SeriesPoint {
 export function seriesFor(
   records: InbodyRecord[],
   metric: InbodyMetric,
+  limit?: number,
 ): SeriesPoint[] {
   const out: SeriesPoint[] = [];
   for (const r of records) {
     const v = metricValue(r, metric);
     if (v !== null) out.push({ ts: r.measuredAt, value: v });
+  }
+  if (limit && out.length > limit) {
+    return out.slice(out.length - limit);
   }
   return out;
 }

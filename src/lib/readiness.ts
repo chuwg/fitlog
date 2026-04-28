@@ -117,7 +117,7 @@ function formatPace(secPerKm: number): string {
 
 export interface RecommendOptions {
   goal5kSeconds?: number | null;
-  inbodyGoalGap?: number | null;
+  inbodyScore?: number | null;
 }
 
 export function recommendWorkout(
@@ -129,16 +129,25 @@ export function recommendWorkout(
       ? goal5kSecondsOrOpts
       : { goal5kSeconds: goal5kSecondsOrOpts ?? null };
   const goal5kSeconds = opts.goal5kSeconds ?? null;
-  const inbodyGap = opts.inbodyGoalGap ?? null;
+  const inbodyScore = opts.inbodyScore ?? null;
 
   const base = baseRecommendation(readiness, goal5kSeconds);
-  if (inbodyGap !== null && inbodyGap > 0 && readiness.status !== 'fatigue') {
+  if (readiness.status === 'fatigue' || inbodyScore === null) {
+    return base;
+  }
+  if (inbodyScore >= 90) {
+    return base;
+  }
+  if (inbodyScore >= 85) {
     return {
       title: base.title,
-      detail: `${base.detail}\n인바디 점수가 목표보다 ${inbodyGap}점 부족합니다. 근력 훈련(스쿼트·푸시업·런지 3세트)을 추가해보세요.`,
+      detail: `${base.detail}\n인바디 ${inbodyScore}점 — 근력 비중을 조금 높여보세요. 메인 운동 후 근력 보강 15분 추천.`,
     };
   }
-  return base;
+  return {
+    title: base.title,
+    detail: `${base.detail}\n인바디 ${inbodyScore}점 — 근력 훈련 추가 권장 (스쿼트·푸시업·런지 3세트).`,
+  };
 }
 
 function baseRecommendation(

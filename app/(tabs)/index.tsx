@@ -65,7 +65,7 @@ interface HomeData {
   shiftLabelText: string;
   cycle: CycleDay[];
   goal5kSeconds: number | null;
-  inbodyGoalGap: number | null;
+  inbodyScore: number | null;
 }
 
 async function loadHome(): Promise<HomeData> {
@@ -90,11 +90,6 @@ async function loadHome(): Promise<HomeData> {
     weatherError = '날씨 정보를 불러오지 못했습니다';
   }
 
-  const inbodyGoalGap =
-    profile.inbodyGoalScore !== null && latestInbody?.score != null
-      ? profile.inbodyGoalScore - latestInbody.score
-      : null;
-
   return {
     snap,
     readiness,
@@ -104,7 +99,7 @@ async function loadHome(): Promise<HomeData> {
     shiftLabelText: shiftLabel(shiftDay, now),
     cycle,
     goal5kSeconds: profile.runningGoal5kSeconds,
-    inbodyGoalGap,
+    inbodyScore: latestInbody?.score ?? null,
   };
 }
 
@@ -178,7 +173,7 @@ export default function HomeScreen() {
             <WorkoutRecommendCard
               readiness={data.readiness}
               goal5kSeconds={data.goal5kSeconds}
-              inbodyGoalGap={data.inbodyGoalGap}
+              inbodyScore={data.inbodyScore}
             />
             {data.weather ? (
               <WeatherCard weather={data.weather} />

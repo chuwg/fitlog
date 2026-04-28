@@ -1,0 +1,10 @@
+{
+  "name": "fitlog-vision-text",
+  "version": "1.0.0",
+  "description": "Apple Vision text recognition for FitLog",
+  "main": "index.ts",
+  "license": "UNLICENSED",
+  "author": "FitLog",
+  "homepage": "https://github.com/chuwg/fitlog",
+  "private": true
+}

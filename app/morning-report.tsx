@@ -15,6 +15,7 @@ import { ShiftBadge } from '../src/components/ShiftBadge';
 import { WeatherCard } from '../src/components/WeatherCard';
 import { computeReadiness, recommendWorkout } from '../src/lib/readiness';
 import {
+  getLatestInbody,
   loadShiftConfig,
   loadSupplementBaseTimes,
   loadUserProfile,
@@ -64,19 +65,23 @@ const STATUS_COLOR = {
 
 async function loadReport(): Promise<ReportData> {
   const now = new Date();
-  const [snap, cfg, profile, supplements, baseTimes] = await Promise.all([
+  const [snap, cfg, profile, supplements, baseTimes, latestInbody] = await Promise.all([
     fetchHealthSnapshot(),
     loadShiftConfig(),
     loadUserProfile(),
     listSupplements(),
     loadSupplementBaseTimes(),
+    getLatestInbody().catch(() => null),
   ]);
   const effectiveCfg = cfg ?? defaultShiftConfig();
   const shiftDay = shiftDayForDate(effectiveCfg, now);
   const readiness = computeReadiness(snap, shiftDay);
   await saveDailyScore(readiness).catch(() => {});
   const cycle = cycleDays(effectiveCfg, now);
-  const recommendation = recommendWorkout(readiness, profile.runningGoal5kSeconds);
+  const recommendation = recommendWorkout(readiness, {
+    goal5kSeconds: profile.runningGoal5kSeconds,
+    inbodyScore: latestInbody?.score ?? null,
+  });
 
   let weather: WeatherInfo | null = null;
   try {

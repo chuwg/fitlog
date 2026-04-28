@@ -470,7 +470,7 @@ function TrendCard({
 function InbodyView({ data }: { data: Data }) {
   const [metric, setMetric] = useState<InbodyMetric>('skeletalMuscleKg');
   const series = useMemo(
-    () => seriesFor(data.allInbody, metric),
+    () => seriesFor(data.allInbody, metric, 6),
     [data.allInbody, metric],
   );
   const progress = useMemo(

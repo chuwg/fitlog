@@ -83,12 +83,17 @@
 - **교체 임박 알림** — 90% 도달 시 1회 발송, 사용자가 km 조정 시 플래그 리셋
 
 ### 인바디 트래커 (분석 탭 인바디 섹션)
+- **Apple Vision OCR**: 결과지를 카메라로 촬영하거나 갤러리에서 불러오면 항목을 자동 인식 (한국어+영어 동시)
+  - 인식된 항목만 폼에 자동 채움, 나머지는 수동 입력 안내
+  - 로컬 Expo Module(`modules/fitlog-vision-text/`)에서 `VNRecognizeTextRequest` 호출
 - 수동 입력 폼: 측정일 + 체중 / 골격근량 / 체지방량 / 체지방률 / BMI / 점수
 - 최신 기록 + 직전 기록 대비 ▲▼ 증감 (개선=초록 / 악화=빨강)
 - 목표 달성률 진행도 바 (`user_profile.inbody_goal_score` 기반)
-- 변화 추이 SVG 라인 차트 (체중 / 골격근량 / 체지방률 / 점수 토글)
-- 홈 추천 훈련에 인바디 목표 부족 시 근력 훈련 권장 자동 추가
-- (OCR은 현재 비활성, 향후 ML Kit 추가 예정)
+- 변화 추이 SVG 라인 차트 — 최근 6회 (체중 / 골격근량 / 체지방률 / 점수 토글)
+- 홈 추천 훈련 점수별 분기:
+  - 90+: 현재 훈련 유지
+  - 85~89: 메인 후 근력 보강 15분
+  - 85 미만: 근력 훈련(스쿼트·푸시업·런지 3세트) 추가 권장
 
 ### 분석 탭 (4-세그먼트)
 - **주간**: 이번 주 거리/시간, 요일별 운동 막대 차트(러닝+농구), ATL/CTL 부하 지수, 균형 +20 이상 시 경고
@@ -361,6 +366,17 @@ npx expo run:ios
 - 홈 추천 훈련에 인바디 목표 부족 시 근력 훈련 권장 자동 추가
 - `recommendWorkout` 시그니처를 옵션 객체로 확장 (`{goal5kSeconds?, inbodyGoalGap?}`)
 - (OCR은 보류, 향후 ML Kit 도입 예정)
+
+### Phase 9 — Apple Vision 인바디 OCR
+- 로컬 Expo Module 추가: `modules/fitlog-vision-text/` (Swift + ExpoModulesCore)
+- `VNRecognizeTextRequest`로 한국어/영어 동시 텍스트 인식
+- `expo-image-picker` 도입 — 카메라 촬영 / 갤러리 선택
+- `src/lib/inbody-ocr.ts`: 정규식 패턴 매칭 (체중/골격근량/체지방량·률/BMI/점수)
+- 인식 결과를 입력 폼에 자동 채움, 일부 인식 시 알림으로 안내
+- `recommendWorkout` 점수별 3단계 분기 (90+/85~89/85↓), `inbodyGoalGap` → `inbodyScore` 시그니처 변경
+- 인바디 변화 추이 차트는 최근 6회로 제한
+- 홈 화면, 모닝 리포트 모두 최신 인바디 점수를 추천에 반영
+- iOS 카메라/갤러리 권한 메시지 추가 (NSCameraUsageDescription 등)
 
 ### Phase 8 — 러닝화 관리 + 분석 탭
 - `shoes` 컬럼 마이그레이션: `purpose` (용도 태그), `replacement_alerted` (알림 플래그)
