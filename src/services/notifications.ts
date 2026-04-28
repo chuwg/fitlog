@@ -188,3 +188,25 @@ export async function rescheduleMorningReports(
 export async function cancelAllNotifications(): Promise<void> {
   await Notifications.cancelAllScheduledNotificationsAsync();
 }
+
+export async function sendShoeReplacementAlert(
+  shoeName: string,
+  brand: string | null,
+  currentKm: number,
+  targetKm: number,
+): Promise<boolean> {
+  const granted = await ensureNotificationPermission();
+  if (!granted) return false;
+  const title = `${brand ? brand + ' ' : ''}${shoeName} 교체 시기`;
+  const body = `현재 ${currentKm.toFixed(0)}/${targetKm.toFixed(0)}km — 목표의 90%에 도달했어요`;
+  await Notifications.scheduleNotificationAsync({
+    content: {
+      title,
+      body,
+      sound: 'default',
+      data: { kind: 'shoe-replacement' },
+    },
+    trigger: null,
+  });
+  return true;
+}

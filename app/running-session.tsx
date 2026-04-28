@@ -26,8 +26,11 @@ import {
 import {
   incrementShoeKm,
   insertRunningSession,
+  listShoes,
   loadUserProfile,
+  setShoeAlerted,
 } from '../src/services/db';
+import { sendShoeReplacementAlert } from '../src/services/notifications';
 import {
   fetchLatestHeartRate,
   fetchLatestWorkoutMetrics,
@@ -217,6 +220,25 @@ export default function RunningSessionScreen() {
 
     if (shoeId && distanceM > 0) {
       await incrementShoeKm(shoeId, distanceM / 1000).catch(() => {});
+      try {
+        const shoes = await listShoes(false);
+        const shoe = shoes.find((s) => s.id === shoeId);
+        if (
+          shoe &&
+          shoe.targetKm &&
+          shoe.targetKm > 0 &&
+          !shoe.replacementAlerted &&
+          shoe.currentKm >= shoe.targetKm * 0.9
+        ) {
+          await sendShoeReplacementAlert(
+            shoe.name,
+            shoe.brand,
+            shoe.currentKm,
+            shoe.targetKm,
+          );
+          await setShoeAlerted(shoe.id, true);
+        }
+      } catch {}
     }
 
     router.replace({ pathname: '/running-report', params: { id: String(id) } });

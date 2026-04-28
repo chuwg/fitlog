@@ -3,6 +3,7 @@ import type {
   BasketballSession,
   BasketballThresholds,
   HrZone,
+  InbodyRecord,
   MorningReportConfig,
   QuarterStats,
   Readiness,
@@ -10,6 +11,7 @@ import type {
   ShiftConfig,
   ShiftKind,
   Shoe,
+  ShoePurpose,
   Supplement,
   SupplementBaseTimes,
   SupplementTiming,
@@ -125,9 +127,23 @@ async function getDb(): Promise<SQLite.SQLiteDatabase> {
       default_quarter_s INTEGER NOT NULL,
       updated_at INTEGER NOT NULL
     );
+    CREATE TABLE IF NOT EXISTS inbody_records (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      measured_at INTEGER NOT NULL,
+      weight_kg REAL,
+      skeletal_muscle_kg REAL,
+      body_fat_kg REAL,
+      body_fat_pct REAL,
+      bmi REAL,
+      score INTEGER,
+      created_at INTEGER NOT NULL
+    );
   `);
   await safeAddColumn(db, 'user_profile', 'max_heart_rate', 'INTEGER');
   await safeAddColumn(db, 'user_profile', 'running_goal_10k', 'INTEGER');
+  await safeAddColumn(db, 'user_profile', 'inbody_goal_score', 'INTEGER');
+  await safeAddColumn(db, 'shoes', 'purpose', "TEXT NOT NULL DEFAULT 'general'");
+  await safeAddColumn(db, 'shoes', 'replacement_alerted', 'INTEGER NOT NULL DEFAULT 0');
   dbInstance = db;
   return db;
 }
@@ -389,36 +405,40 @@ interface UserProfileRow {
   running_goal_5k: number | null;
   running_goal_10k: number | null;
   max_heart_rate: number | null;
+  inbody_goal_score: number | null;
 }
 
 export async function loadUserProfile(): Promise<UserProfile> {
   const db = await getDb();
   const row = await db.getFirstAsync<UserProfileRow>(
-    `SELECT name, running_goal_5k, running_goal_10k, max_heart_rate FROM user_profile WHERE id = 1`,
+    `SELECT name, running_goal_5k, running_goal_10k, max_heart_rate, inbody_goal_score FROM user_profile WHERE id = 1`,
   );
   return {
     name: row?.name ?? null,
     runningGoal5kSeconds: row?.running_goal_5k ?? null,
     runningGoal10kSeconds: row?.running_goal_10k ?? null,
     maxHeartRate: row?.max_heart_rate ?? null,
+    inbodyGoalScore: row?.inbody_goal_score ?? null,
   };
 }
 
 export async function saveUserProfile(profile: UserProfile): Promise<void> {
   const db = await getDb();
   await db.runAsync(
-    `INSERT INTO user_profile (id, name, running_goal_5k, running_goal_10k, max_heart_rate, updated_at)
-     VALUES (1, ?, ?, ?, ?, ?)
+    `INSERT INTO user_profile (id, name, running_goal_5k, running_goal_10k, max_heart_rate, inbody_goal_score, updated_at)
+     VALUES (1, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(id) DO UPDATE SET
        name = excluded.name,
        running_goal_5k = excluded.running_goal_5k,
        running_goal_10k = excluded.running_goal_10k,
        max_heart_rate = excluded.max_heart_rate,
+       inbody_goal_score = excluded.inbody_goal_score,
        updated_at = excluded.updated_at`,
     profile.name,
     profile.runningGoal5kSeconds,
     profile.runningGoal10kSeconds,
     profile.maxHeartRate,
+    profile.inbodyGoalScore,
     Date.now(),
   );
 }
@@ -479,9 +499,11 @@ interface ShoeRow {
   id: number;
   name: string;
   brand: string | null;
+  purpose: string;
   current_km: number;
   target_km: number | null;
   is_active: number;
+  replacement_alerted: number;
 }
 
 function rowToShoe(r: ShoeRow): Shoe {
@@ -489,9 +511,11 @@ function rowToShoe(r: ShoeRow): Shoe {
     id: r.id,
     name: r.name,
     brand: r.brand,
+    purpose: (r.purpose as ShoePurpose) ?? 'general',
     currentKm: r.current_km,
     targetKm: r.target_km,
     isActive: r.is_active === 1,
+    replacementAlerted: r.replacement_alerted === 1,
   };
 }
 
@@ -508,13 +532,15 @@ export async function listShoes(activeOnly = false): Promise<Shoe[]> {
 export async function insertShoe(input: Omit<Shoe, 'id'>): Promise<number> {
   const db = await getDb();
   const result = await db.runAsync(
-    `INSERT INTO shoes (name, brand, current_km, target_km, is_active, created_at)
-     VALUES (?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO shoes (name, brand, purpose, current_km, target_km, is_active, replacement_alerted, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
     input.name,
     input.brand,
+    input.purpose,
     input.currentKm,
     input.targetKm,
     input.isActive ? 1 : 0,
+    input.replacementAlerted ? 1 : 0,
     Date.now(),
   );
   return result.lastInsertRowId;
@@ -523,13 +549,24 @@ export async function insertShoe(input: Omit<Shoe, 'id'>): Promise<number> {
 export async function updateShoe(s: Shoe): Promise<void> {
   const db = await getDb();
   await db.runAsync(
-    `UPDATE shoes SET name = ?, brand = ?, current_km = ?, target_km = ?, is_active = ? WHERE id = ?`,
+    `UPDATE shoes SET name = ?, brand = ?, purpose = ?, current_km = ?, target_km = ?, is_active = ?, replacement_alerted = ? WHERE id = ?`,
     s.name,
     s.brand,
+    s.purpose,
     s.currentKm,
     s.targetKm,
     s.isActive ? 1 : 0,
+    s.replacementAlerted ? 1 : 0,
     s.id,
+  );
+}
+
+export async function setShoeAlerted(id: number, alerted: boolean): Promise<void> {
+  const db = await getDb();
+  await db.runAsync(
+    `UPDATE shoes SET replacement_alerted = ? WHERE id = ?`,
+    alerted ? 1 : 0,
+    id,
   );
 }
 
@@ -645,6 +682,27 @@ export async function getRunningSession(id: number): Promise<RunningSession | nu
     id,
   );
   return row ? rowToSession(row) : null;
+}
+
+export async function listRunningSessionsBetween(
+  startMs: number,
+  endMs: number,
+): Promise<RunningSession[]> {
+  const db = await getDb();
+  const rows = await db.getAllAsync<RunningSessionRow>(
+    `SELECT * FROM running_sessions WHERE started_at BETWEEN ? AND ? ORDER BY started_at ASC`,
+    startMs,
+    endMs,
+  );
+  return rows.map(rowToSession);
+}
+
+export async function listAllRunningSessions(): Promise<RunningSession[]> {
+  const db = await getDb();
+  const rows = await db.getAllAsync<RunningSessionRow>(
+    `SELECT * FROM running_sessions ORDER BY started_at ASC`,
+  );
+  return rows.map(rowToSession);
 }
 
 export async function findPreviousSimilarSession(
@@ -777,6 +835,27 @@ export async function insertBasketballSession(
   return result.lastInsertRowId;
 }
 
+export async function listBasketballSessionsBetween(
+  startMs: number,
+  endMs: number,
+): Promise<BasketballSession[]> {
+  const db = await getDb();
+  const rows = await db.getAllAsync<BasketballSessionRow>(
+    `SELECT * FROM basketball_sessions WHERE started_at BETWEEN ? AND ? ORDER BY started_at ASC`,
+    startMs,
+    endMs,
+  );
+  return rows.map(rowToBasketballSession);
+}
+
+export async function listAllBasketballSessions(): Promise<BasketballSession[]> {
+  const db = await getDb();
+  const rows = await db.getAllAsync<BasketballSessionRow>(
+    `SELECT * FROM basketball_sessions ORDER BY started_at ASC`,
+  );
+  return rows.map(rowToBasketballSession);
+}
+
 export async function getBasketballSession(
   id: number,
 ): Promise<BasketballSession | null> {
@@ -786,4 +865,80 @@ export async function getBasketballSession(
     id,
   );
   return row ? rowToBasketballSession(row) : null;
+}
+
+interface InbodyRow {
+  id: number;
+  measured_at: number;
+  weight_kg: number | null;
+  skeletal_muscle_kg: number | null;
+  body_fat_kg: number | null;
+  body_fat_pct: number | null;
+  bmi: number | null;
+  score: number | null;
+}
+
+function rowToInbody(r: InbodyRow): InbodyRecord {
+  return {
+    id: r.id,
+    measuredAt: r.measured_at,
+    weightKg: r.weight_kg,
+    skeletalMuscleKg: r.skeletal_muscle_kg,
+    bodyFatKg: r.body_fat_kg,
+    bodyFatPct: r.body_fat_pct,
+    bmi: r.bmi,
+    score: r.score,
+  };
+}
+
+export async function listInbodyRecords(): Promise<InbodyRecord[]> {
+  const db = await getDb();
+  const rows = await db.getAllAsync<InbodyRow>(
+    `SELECT * FROM inbody_records ORDER BY measured_at ASC`,
+  );
+  return rows.map(rowToInbody);
+}
+
+export async function getLatestInbody(): Promise<InbodyRecord | null> {
+  const db = await getDb();
+  const row = await db.getFirstAsync<InbodyRow>(
+    `SELECT * FROM inbody_records ORDER BY measured_at DESC LIMIT 1`,
+  );
+  return row ? rowToInbody(row) : null;
+}
+
+export async function getPreviousInbody(
+  beforeMs: number,
+): Promise<InbodyRecord | null> {
+  const db = await getDb();
+  const row = await db.getFirstAsync<InbodyRow>(
+    `SELECT * FROM inbody_records WHERE measured_at < ? ORDER BY measured_at DESC LIMIT 1`,
+    beforeMs,
+  );
+  return row ? rowToInbody(row) : null;
+}
+
+export async function insertInbodyRecord(
+  input: Omit<InbodyRecord, 'id'>,
+): Promise<number> {
+  const db = await getDb();
+  const result = await db.runAsync(
+    `INSERT INTO inbody_records (
+      measured_at, weight_kg, skeletal_muscle_kg, body_fat_kg, body_fat_pct, bmi, score, created_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    input.measuredAt,
+    input.weightKg,
+    input.skeletalMuscleKg,
+    input.bodyFatKg,
+    input.bodyFatPct,
+    input.bmi,
+    input.score,
+    Date.now(),
+  );
+  return result.lastInsertRowId;
+}
+
+export async function deleteInbodyRecord(id: number): Promise<void> {
+  const db = await getDb();
+  await db.runAsync(`DELETE FROM inbody_records WHERE id = ?`, id);
 }

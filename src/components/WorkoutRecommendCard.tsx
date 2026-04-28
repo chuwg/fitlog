@@ -8,11 +8,13 @@ import { recommendWorkout } from '../lib/readiness';
 export function WorkoutRecommendCard({
   readiness,
   goal5kSeconds,
+  inbodyGoalGap,
 }: {
   readiness: Readiness;
   goal5kSeconds?: number | null;
+  inbodyGoalGap?: number | null;
 }) {
-  const rec = recommendWorkout(readiness, goal5kSeconds);
+  const rec = recommendWorkout(readiness, { goal5kSeconds, inbodyGoalGap });
   return (
     <Card title="오늘 추천 훈련">
       <View style={styles.row}>

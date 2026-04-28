@@ -34,6 +34,9 @@ export function UserProfileSection({ profile, onChange }: Props) {
   const [maxHr, setMaxHr] = useState(
     profile.maxHeartRate ? String(profile.maxHeartRate) : '',
   );
+  const [inbodyGoal, setInbodyGoal] = useState(
+    profile.inbodyGoalScore ? String(profile.inbodyGoalScore) : '',
+  );
 
   const commitName = () => {
     const trimmed = name.trim();
@@ -72,6 +75,20 @@ export function UserProfileSection({ profile, onChange }: Props) {
       return;
     }
     onChange({ ...profile, maxHeartRate: v });
+  };
+
+  const commitInbodyGoal = () => {
+    if (inbodyGoal.trim() === '') {
+      onChange({ ...profile, inbodyGoalScore: null });
+      return;
+    }
+    const v = parseInt(inbodyGoal, 10);
+    if (isNaN(v) || v < 1 || v > 100) {
+      Alert.alert('값 확인', '1~100 사이의 값을 입력해주세요.');
+      setInbodyGoal(profile.inbodyGoalScore ? String(profile.inbodyGoalScore) : '');
+      return;
+    }
+    onChange({ ...profile, inbodyGoalScore: v });
   };
 
   return (
@@ -130,8 +147,23 @@ export function UserProfileSection({ profile, onChange }: Props) {
           <Text style={styles.unit}>bpm</Text>
         </View>
       </Field>
+      <Field label="인바디 목표 점수">
+        <View style={styles.inlineRow}>
+          <TextInput
+            value={inbodyGoal}
+            onChangeText={setInbodyGoal}
+            onBlur={commitInbodyGoal}
+            placeholder="85"
+            placeholderTextColor={colors.textMuted}
+            style={[styles.input, styles.inputSmall]}
+            keyboardType="number-pad"
+            returnKeyType="done"
+          />
+          <Text style={styles.unit}>점</Text>
+        </View>
+      </Field>
       <Text style={styles.hint}>
-        목표 시간은 페이스 추천에, 최대 심박수는 러닝 중 Zone 표시에 사용됩니다.
+        목표 시간은 페이스 추천에, 최대 심박수는 러닝 중 Zone 표시에, 인바디 목표 점수는 분석 탭과 홈 추천에 사용됩니다.
       </Text>
     </Card>
   );

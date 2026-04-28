@@ -86,6 +86,7 @@ export interface UserProfile {
   runningGoal5kSeconds: number | null;
   runningGoal10kSeconds: number | null;
   maxHeartRate: number | null;
+  inbodyGoalScore: number | null;
 }
 
 export interface MorningReportConfig {
@@ -94,13 +95,17 @@ export interface MorningReportConfig {
   adjustPostNight: boolean;
 }
 
+export type ShoePurpose = 'general' | 'recovery' | 'race';
+
 export interface Shoe {
   id: number;
   name: string;
   brand: string | null;
+  purpose: ShoePurpose;
   currentKm: number;
   targetKm: number | null;
   isActive: boolean;
+  replacementAlerted: boolean;
 }
 
 export type HrZone = 1 | 2 | 3 | 4 | 5;
@@ -167,3 +172,20 @@ export interface BasketballSession {
   anaerobicStars: number;
   tomorrowAdvice: string;
 }
+
+export interface InbodyRecord {
+  id: number;
+  measuredAt: number;
+  weightKg: number | null;
+  skeletalMuscleKg: number | null;
+  bodyFatKg: number | null;
+  bodyFatPct: number | null;
+  bmi: number | null;
+  score: number | null;
+}
+
+export type InbodyMetric =
+  | 'weightKg'
+  | 'skeletalMuscleKg'
+  | 'bodyFatPct'
+  | 'score';

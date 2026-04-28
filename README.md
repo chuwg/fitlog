@@ -2,7 +2,7 @@
 
 교대근무자를 위한 스마트 운동 파트너 앱.
 
-수면, HRV, 안정시 심박, 최근 운동 기록을 바탕으로 매일의 **훈련 준비 점수**를 계산하고, 교대 근무 패턴에 따라 보충제 알림과 모닝 리포트를 자동 조정해주는 React Native 앱입니다. **러닝과 농구** 두 가지 운동 모드로 실시간 트래킹과 세션 리포트를 제공합니다.
+수면, HRV, 안정시 심박, 최근 운동 기록을 바탕으로 매일의 **훈련 준비 점수**를 계산하고, 교대 근무 패턴에 따라 보충제 알림과 모닝 리포트를 자동 조정해주는 React Native 앱입니다. **러닝과 농구** 두 가지 운동 모드로 실시간 트래킹과 세션 리포트를 제공하며, **인바디 추적**과 **주간/월간 훈련 분석**까지 하나의 앱에서 관리합니다.
 
 ## 주요 기능
 
@@ -76,8 +76,25 @@
 
 ### 신발 관리
 - 등록/수정/삭제, 활성 토글, 누적 km 자동 추적
-- 목표 km 설정 시 진행도 바 표시 (85% 초과 시 빨강)
+- **용도 태그** (일반훈련 / 회복 / 대회) — 색상 구분
+- 브랜드 + 모델명 인라인 편집
+- 목표 km 설정 시 진행도 바 표시 (90% 초과 시 빨강)
 - 러닝 세션 종료 시 선택한 신발에 거리 자동 누적
+- **교체 임박 알림** — 90% 도달 시 1회 발송, 사용자가 km 조정 시 플래그 리셋
+
+### 인바디 트래커 (분석 탭 인바디 섹션)
+- 수동 입력 폼: 측정일 + 체중 / 골격근량 / 체지방량 / 체지방률 / BMI / 점수
+- 최신 기록 + 직전 기록 대비 ▲▼ 증감 (개선=초록 / 악화=빨강)
+- 목표 달성률 진행도 바 (`user_profile.inbody_goal_score` 기반)
+- 변화 추이 SVG 라인 차트 (체중 / 골격근량 / 체지방률 / 점수 토글)
+- 홈 추천 훈련에 인바디 목표 부족 시 근력 훈련 권장 자동 추가
+- (OCR은 현재 비활성, 향후 ML Kit 추가 예정)
+
+### 분석 탭 (4-세그먼트)
+- **주간**: 이번 주 거리/시간, 요일별 운동 막대 차트(러닝+농구), ATL/CTL 부하 지수, 균형 +20 이상 시 경고
+- **월간**: 거리/세션/시간/칼로리, 5km·10km 베스트(목표 대비), 자동 하이라이트 (지난달 대비 증감, 베스트 단축, 농구 횟수)
+- **트렌드**: 평균 페이스 / 평균 심박 / GCT / 인바디 점수 라인 차트
+- **인바디**: 위 인바디 트래커 화면
 
 ## 기술 스택
 
@@ -187,11 +204,12 @@ fitlog/
 │   ├── running-report.tsx            # 러닝 종료 리포트
 │   ├── basketball-session.tsx        # 농구 라이브 세션
 │   ├── basketball-report.tsx         # 농구 종료 리포트
+│   ├── inbody-entry.tsx              # 인바디 수동 입력
 │   └── (tabs)/
 │       ├── _layout.tsx               # 4개 탭 정의
 │       ├── index.tsx                 # 홈
 │       ├── workout.tsx               # 운동 (러닝/농구 토글)
-│       ├── analytics.tsx             # 분석 (placeholder)
+│       ├── analytics.tsx             # 분석 (주간/월간/트렌드/인바디)
 │       └── settings.tsx              # 설정
 ├── src/
 │   ├── theme/colors.ts               # 민트 #00D4AA 다크 팔레트
@@ -201,12 +219,14 @@ fitlog/
 │   │   ├── pace.ts                   # 페이스 / Zone / PacePro / 하버사인
 │   │   ├── motion.ts                 # DeviceMotion 점프·스프린트 감지
 │   │   ├── basketball.ts             # 칼로리 / 별점 / 내일 권장
+│   │   ├── inbody.ts                 # 메트릭 / 증감 / 목표 진행도
+│   │   ├── analytics.ts              # 주간·월간·트렌드 집계 + ATL/CTL
 │   │   └── time.ts                   # HH:MM ↔ Date 변환
 │   ├── services/
-│   │   ├── db.ts                     # SQLite (12개 테이블)
+│   │   ├── db.ts                     # SQLite (13개 테이블)
 │   │   ├── health.ts                 # HealthKit + mock fallback
 │   │   ├── shift.ts                  # 사이클 계산, 오늘 근무 유형
-│   │   ├── notifications.ts          # 보충제 + 모닝 리포트 스케줄링
+│   │   ├── notifications.ts          # 보충제 + 모닝 리포트 + 신발 알림
 │   │   ├── location.ts               # expo-location + 기본 좌표
 │   │   ├── weather.ts                # Open-Meteo + 대기질
 │   │   └── running.ts                # GPS 워처 + HR 폴링
@@ -231,6 +251,10 @@ fitlog/
 │       ├── basketball/
 │       │   ├── StartForm.tsx
 │       │   └── StarRating.tsx
+│       ├── inbody/
+│       │   └── LineChart.tsx
+│       ├── analytics/
+│       │   └── WeekBarChart.tsx
 │       └── settings/
 │           ├── UserProfileSection.tsx
 │           ├── ShiftSection.tsx
@@ -250,12 +274,13 @@ fitlog/
 | `shift_config` | 교대 사이클, 시작일, 근무 시간 (단일 행) |
 | `supplements` | 보충제 목록 (이름, 용량, 타이밍, 교대연동, 활성) |
 | `supplement_base_times` | 4가지 타이밍 기본 시간 (단일 행) |
-| `user_profile` | 이름, 5k/10k 목표, 최대 심박 (단일 행) |
+| `user_profile` | 이름, 5k/10k 목표, 최대 심박, 인바디 목표 점수 (단일 행) |
 | `morning_report_config` | 알림 시간, 야간 스킵, +2h 옵션 (단일 행) |
-| `shoes` | 러닝화 (이름, 브랜드, 누적 km, 목표 km, 활성) |
+| `shoes` | 러닝화 (이름, 브랜드, 용도, 누적 km, 목표 km, 활성, 교체 알림 플래그) |
 | `running_sessions` | 러닝 세션 기록 (거리, 시간, 페이스, HR, Zone, 다이내믹스, 신발) |
 | `basketball_sessions` | 농구 세션 기록 (쿼터 JSON, 점프/스프린트, HR, 별점, 내일 권장) |
 | `basketball_config` | 점프/스프린트 임계값 (단일 행) |
+| `inbody_records` | 인바디 측정 기록 (체중, 골격근량, 체지방량/률, BMI, 점수) |
 
 ## 시작하기
 
@@ -327,9 +352,27 @@ npx expo run:ios
 - 쿼터 종료 모달 → 다음 쿼터 / 세션 종료
 - 리포트: 칼로리(HR 기반), Zone 분포, 유산소/무산소 별점, 쿼터별 심박 추이, 내일 훈련 권장
 
+### Phase 7 — 인바디 트래커
+- 신규 테이블: `inbody_records`, `user_profile.inbody_goal_score` 컬럼 추가
+- 수동 입력 화면 (`app/inbody-entry.tsx`) — 6개 메트릭, 네이티브 DatePicker
+- `src/lib/inbody.ts`: 메트릭 추출, 증감 계산(메트릭별 개선 방향), 목표 진행도
+- `react-native-svg` 직접 그린 LineChart 컴포넌트 (의존성 추가 없음)
+- 분석 탭에 인바디 섹션 통합 (하단 탭 4개 유지)
+- 홈 추천 훈련에 인바디 목표 부족 시 근력 훈련 권장 자동 추가
+- `recommendWorkout` 시그니처를 옵션 객체로 확장 (`{goal5kSeconds?, inbodyGoalGap?}`)
+- (OCR은 보류, 향후 ML Kit 도입 예정)
+
+### Phase 8 — 러닝화 관리 + 분석 탭
+- `shoes` 컬럼 마이그레이션: `purpose` (용도 태그), `replacement_alerted` (알림 플래그)
+- `ShoesSection` 인라인 편집 폼, 용도 칩(일반훈련/회복/대회), 교체 임박 라벨
+- 신발 90% 도달 시 1회 푸시 알림 (`sendShoeReplacementAlert`), 사용자가 km 줄이면 플래그 리셋
+- `src/lib/analytics.ts`: 주간/월간 집계, ATL/CTL, 트렌드 시계열, 하이라이트 자동 생성
+- `WeekBarChart` 요일별 스택 막대 (러닝/농구 색 구분)
+- 분석 탭을 4개 세그먼트로 재구성 (주간/월간/트렌드/인바디)
+
 ## 향후 계획
 
-- 분석 탭 (점수/페이스/심박 트렌드, 컨디션 차트)
 - 백그라운드 GPS 트래킹 (실내/긴 세션 대응)
-- 세션 히스토리 리스트 (러닝/농구)
+- 세션 히스토리 리스트 (러닝/농구 전체 목록)
+- 인바디 OCR (ML Kit 도입)
 - watchOS 컴패니언 앱 (홈 화면 점수 표시)

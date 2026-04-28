@@ -115,9 +115,35 @@ function formatPace(secPerKm: number): string {
   return `${m}:${String(s).padStart(2, '0')}`;
 }
 
+export interface RecommendOptions {
+  goal5kSeconds?: number | null;
+  inbodyGoalGap?: number | null;
+}
+
 export function recommendWorkout(
   readiness: Readiness,
-  goal5kSeconds?: number | null,
+  goal5kSecondsOrOpts?: number | null | RecommendOptions,
+): { title: string; detail: string } {
+  const opts: RecommendOptions =
+    typeof goal5kSecondsOrOpts === 'object' && goal5kSecondsOrOpts !== null
+      ? goal5kSecondsOrOpts
+      : { goal5kSeconds: goal5kSecondsOrOpts ?? null };
+  const goal5kSeconds = opts.goal5kSeconds ?? null;
+  const inbodyGap = opts.inbodyGoalGap ?? null;
+
+  const base = baseRecommendation(readiness, goal5kSeconds);
+  if (inbodyGap !== null && inbodyGap > 0 && readiness.status !== 'fatigue') {
+    return {
+      title: base.title,
+      detail: `${base.detail}\n인바디 점수가 목표보다 ${inbodyGap}점 부족합니다. 근력 훈련(스쿼트·푸시업·런지 3세트)을 추가해보세요.`,
+    };
+  }
+  return base;
+}
+
+function baseRecommendation(
+  readiness: Readiness,
+  goal5kSeconds: number | null,
 ): { title: string; detail: string } {
   if (goal5kSeconds && goal5kSeconds > 0) {
     const pace = goal5kSeconds / 5;

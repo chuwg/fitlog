@@ -18,6 +18,7 @@ import { WeatherCard } from '../../src/components/WeatherCard';
 import { WorkoutRecommendCard } from '../../src/components/WorkoutRecommendCard';
 import { computeReadiness } from '../../src/lib/readiness';
 import {
+  getLatestInbody,
   loadShiftConfig,
   loadUserProfile,
   saveDailyScore,
@@ -64,14 +65,16 @@ interface HomeData {
   shiftLabelText: string;
   cycle: CycleDay[];
   goal5kSeconds: number | null;
+  inbodyGoalGap: number | null;
 }
 
 async function loadHome(): Promise<HomeData> {
   const now = new Date();
-  const [snap, cfg, profile] = await Promise.all([
+  const [snap, cfg, profile, latestInbody] = await Promise.all([
     fetchHealthSnapshot(),
     loadShiftConfig(),
     loadUserProfile(),
+    getLatestInbody().catch(() => null),
   ]);
   const effectiveCfg = cfg ?? defaultShiftConfig();
   const shiftDay = shiftDayForDate(effectiveCfg, now);
@@ -87,6 +90,11 @@ async function loadHome(): Promise<HomeData> {
     weatherError = '날씨 정보를 불러오지 못했습니다';
   }
 
+  const inbodyGoalGap =
+    profile.inbodyGoalScore !== null && latestInbody?.score != null
+      ? profile.inbodyGoalScore - latestInbody.score
+      : null;
+
   return {
     snap,
     readiness,
@@ -96,6 +104,7 @@ async function loadHome(): Promise<HomeData> {
     shiftLabelText: shiftLabel(shiftDay, now),
     cycle,
     goal5kSeconds: profile.runningGoal5kSeconds,
+    inbodyGoalGap,
   };
 }
 
@@ -169,6 +178,7 @@ export default function HomeScreen() {
             <WorkoutRecommendCard
               readiness={data.readiness}
               goal5kSeconds={data.goal5kSeconds}
+              inbodyGoalGap={data.inbodyGoalGap}
             />
             {data.weather ? (
               <WeatherCard weather={data.weather} />
