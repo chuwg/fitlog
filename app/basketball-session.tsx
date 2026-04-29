@@ -26,6 +26,7 @@ import {
   hrZoneFor,
 } from '../src/lib/pace';
 import {
+  getLatestInbody,
   insertBasketballSession,
   loadBasketballThresholds,
   loadUserProfile,
@@ -75,6 +76,7 @@ export default function BasketballSessionScreen() {
   const quarterRef = useRef<QuarterRunState>(makeQuarter(0));
 
   const [maxHr, setMaxHr] = useState<number | null>(null);
+  const [weightKg, setWeightKg] = useState<number | null>(null);
   const [now, setNow] = useState<number>(Date.now());
   const [, force] = useState<number>(0);
   const [currentHr, setCurrentHr] = useState<number | null>(null);
@@ -85,11 +87,13 @@ export default function BasketballSessionScreen() {
 
   useEffect(() => {
     (async () => {
-      const [profile, thresh] = await Promise.all([
+      const [profile, thresh, latestInbody] = await Promise.all([
         loadUserProfile(),
         loadBasketballThresholds(),
+        getLatestInbody().catch(() => null),
       ]);
       setMaxHr(profile.maxHeartRate);
+      setWeightKg(latestInbody?.weightKg ?? null);
 
       const handle = await startMotionDetector({
         jumpG: thresh.jumpG,
@@ -219,7 +223,7 @@ export default function BasketballSessionScreen() {
     const hasZoneData = Object.values(totalZones).some((v) => v > 0);
     const stars = effectStars(totalZones);
     const advice = tomorrowAdvice(durationS, hasZoneData ? totalZones : null);
-    const calories = estimateCalories(durationS, avgHrFromSamples);
+    const calories = estimateCalories(durationS, avgHrFromSamples, weightKg);
 
     const totalJumps =
       allQuarters.reduce((a, q) => a + q.jumps, 0);

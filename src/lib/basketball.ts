@@ -1,16 +1,13 @@
 import type { QuarterStats, ZoneDistribution } from '../types';
+import { estimateBasketballCalories } from './calories';
 import { emptyZoneDistribution, totalZoneSeconds } from './pace';
 
 export function estimateCalories(
   durationS: number,
   avgHr: number | null,
+  weightKg: number | null = null,
 ): number {
-  const minutes = durationS / 60;
-  if (minutes <= 0) return 0;
-  if (avgHr === null) return Math.round(minutes * 9);
-  const ratio = Math.max(0, Math.min(1, (avgHr - 100) / 80));
-  const perMin = 8 + ratio * 8;
-  return Math.round(minutes * perMin);
+  return estimateBasketballCalories(durationS, avgHr, weightKg);
 }
 
 export function aggregateZones(

@@ -209,13 +209,14 @@ export default function AnalyticsScreen() {
 function WeekView({ data }: { data: Data }) {
   const now = new Date();
   const weekStart = startOfWeek(now);
+  const weightKg = data.latestInbody?.weightKg ?? null;
   const days = useMemo(
-    () => buildWeekDays(weekStart, data.weekRunning, data.weekBasketball),
-    [data.weekBasketball, data.weekRunning, weekStart],
+    () => buildWeekDays(weekStart, data.weekRunning, data.weekBasketball, weightKg),
+    [data.weekBasketball, data.weekRunning, weekStart, weightKg],
   );
   const load: LoadIndex = useMemo(
-    () => computeLoadIndex(now, data.allRunning, data.allBasketball),
-    [data.allBasketball, data.allRunning, now],
+    () => computeLoadIndex(now, data.allRunning, data.allBasketball, weightKg),
+    [data.allBasketball, data.allRunning, now, weightKg],
   );
   const totalKm = days.reduce((a, d) => a + d.runningKm, 0);
   const totalMin = days.reduce(
@@ -261,13 +262,14 @@ function WeekView({ data }: { data: Data }) {
 }
 
 function MonthView({ data }: { data: Data }) {
+  const weightKg = data.latestInbody?.weightKg ?? null;
   const summary = useMemo(
-    () => buildMonthSummary(data.monthRunning, data.monthBasketball),
-    [data.monthBasketball, data.monthRunning],
+    () => buildMonthSummary(data.monthRunning, data.monthBasketball, weightKg),
+    [data.monthBasketball, data.monthRunning, weightKg],
   );
   const prevSummary = useMemo(
-    () => buildMonthSummary(data.prevMonthRunning, data.prevMonthBasketball),
-    [data.prevMonthBasketball, data.prevMonthRunning],
+    () => buildMonthSummary(data.prevMonthRunning, data.prevMonthBasketball, weightKg),
+    [data.prevMonthBasketball, data.prevMonthRunning, weightKg],
   );
   const highlights = useMemo<MonthHighlight[]>(
     () =>

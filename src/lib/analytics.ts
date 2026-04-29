@@ -1,6 +1,8 @@
 import type { BasketballSession, RunningSession } from '../types';
-
-const KCAL_PER_RUN_MIN = 9;
+import {
+  basketballCalories as basketballCaloriesFromLib,
+  runningCalories as runningCaloriesFromLib,
+} from './calories';
 
 export function startOfDay(d: Date): Date {
   const x = new Date(d);
@@ -34,13 +36,18 @@ export function addMonths(d: Date, months: number): Date {
   return x;
 }
 
-export function runningCalories(s: RunningSession): number {
-  const minutes = s.durationS / 60;
-  return Math.round(minutes * KCAL_PER_RUN_MIN);
+export function runningCalories(
+  s: RunningSession,
+  weightKg: number | null = null,
+): number {
+  return runningCaloriesFromLib(s, weightKg);
 }
 
-export function basketballCalories(s: BasketballSession): number {
-  return s.caloriesKcal ?? Math.round((s.durationS / 60) * KCAL_PER_RUN_MIN);
+export function basketballCalories(
+  s: BasketballSession,
+  weightKg: number | null = null,
+): number {
+  return basketballCaloriesFromLib(s, weightKg);
 }
 
 export interface DayActivity {
@@ -55,6 +62,7 @@ export function buildWeekDays(
   weekStart: Date,
   running: RunningSession[],
   basketball: BasketballSession[],
+  weightKg: number | null = null,
 ): DayActivity[] {
   const out: DayActivity[] = [];
   for (let i = 0; i < 7; i++) {
@@ -67,7 +75,7 @@ export function buildWeekDays(
       if (r.startedAt >= dayStart && r.startedAt < dayEnd) {
         runMin += r.durationS / 60;
         runKm += r.distanceM / 1000;
-        runKcal += runningCalories(r);
+        runKcal += runningCalories(r, weightKg);
       }
     }
     let bbMin = 0;
@@ -75,7 +83,7 @@ export function buildWeekDays(
     for (const b of basketball) {
       if (b.startedAt >= dayStart && b.startedAt < dayEnd) {
         bbMin += b.durationS / 60;
-        bbKcal += basketballCalories(b);
+        bbKcal += basketballCalories(b, weightKg);
       }
     }
     out.push({
@@ -100,15 +108,17 @@ export function computeLoadIndex(
   now: Date,
   running: RunningSession[],
   basketball: BasketballSession[],
+  weightKg: number | null = null,
 ): LoadIndex {
   const today = startOfDay(now).getTime();
   const day = 86_400_000;
   const sumIn = (days: number): number => {
     const cutoff = today - day * days;
     let total = 0;
-    for (const r of running) if (r.startedAt >= cutoff) total += runningCalories(r);
+    for (const r of running)
+      if (r.startedAt >= cutoff) total += runningCalories(r, weightKg);
     for (const b of basketball)
-      if (b.startedAt >= cutoff) total += basketballCalories(b);
+      if (b.startedAt >= cutoff) total += basketballCalories(b, weightKg);
     return total;
   };
   const atl = Math.round(sumIn(7) / 7);
@@ -144,13 +154,14 @@ function bestPaceForDistance(
 export function buildMonthSummary(
   running: RunningSession[],
   basketball: BasketballSession[],
+  weightKg: number | null = null,
 ): MonthSummary {
   const totalRunningKm = running.reduce((a, r) => a + r.distanceM / 1000, 0);
   const totalRunningMin = running.reduce((a, r) => a + r.durationS / 60, 0);
   const totalBasketMin = basketball.reduce((a, b) => a + b.durationS / 60, 0);
   const totalKcal =
-    running.reduce((a, r) => a + runningCalories(r), 0) +
-    basketball.reduce((a, b) => a + basketballCalories(b), 0);
+    running.reduce((a, r) => a + runningCalories(r, weightKg), 0) +
+    basketball.reduce((a, b) => a + basketballCalories(b, weightKg), 0);
   return {
     totalRunningKm,
     totalBasketballSessions: basketball.length,

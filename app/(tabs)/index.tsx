@@ -16,6 +16,7 @@ import { ReadinessCard } from '../../src/components/ReadinessCard';
 import { ShiftBadge } from '../../src/components/ShiftBadge';
 import { WeatherCard } from '../../src/components/WeatherCard';
 import { WorkoutRecommendCard } from '../../src/components/WorkoutRecommendCard';
+import { weekdayLabelSunFirst } from '../../src/lib/dates';
 import { computeReadiness } from '../../src/lib/readiness';
 import {
   getLatestInbody,
@@ -40,10 +41,8 @@ import type {
   WeatherInfo,
 } from '../../src/types';
 
-const WEEKDAY_KR = ['일', '월', '화', '수', '목', '금', '토'];
-
 function formatDate(d: Date): string {
-  return `${d.getMonth() + 1}월 ${d.getDate()}일 ${WEEKDAY_KR[d.getDay()]}요일`;
+  return `${d.getMonth() + 1}월 ${d.getDate()}일 ${weekdayLabelSunFirst(d)}요일`;
 }
 
 function greeting(d: Date): string {

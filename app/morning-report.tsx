@@ -13,6 +13,7 @@ import { Card } from '../src/components/Card';
 import { ConditionCard } from '../src/components/ConditionCard';
 import { ShiftBadge } from '../src/components/ShiftBadge';
 import { WeatherCard } from '../src/components/WeatherCard';
+import { weekdayLabelSunFirst } from '../src/lib/dates';
 import { computeReadiness, recommendWorkout } from '../src/lib/readiness';
 import {
   getLatestInbody,
@@ -109,10 +110,8 @@ async function loadReport(): Promise<ReportData> {
   };
 }
 
-const WEEKDAY_KR = ['일', '월', '화', '수', '목', '금', '토'];
-
 function formatDate(d: Date): string {
-  return `${d.getMonth() + 1}월 ${d.getDate()}일 ${WEEKDAY_KR[d.getDay()]}요일`;
+  return `${d.getMonth() + 1}월 ${d.getDate()}일 ${weekdayLabelSunFirst(d)}요일`;
 }
 
 export default function MorningReportScreen() {

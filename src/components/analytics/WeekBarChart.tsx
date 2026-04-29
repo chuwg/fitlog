@@ -1,9 +1,10 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
+import { WEEKDAY_KR_MON_FIRST } from '../../lib/dates';
 import { colors, radius, spacing } from '../../theme/colors';
 import type { DayActivity } from '../../lib/analytics';
 
-const WEEKDAYS = ['월', '화', '수', '목', '금', '토', '일'];
+const WEEKDAYS = WEEKDAY_KR_MON_FIRST;
 
 export function WeekBarChart({ data }: { data: DayActivity[] }) {
   const max = Math.max(
