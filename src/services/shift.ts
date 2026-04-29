@@ -21,10 +21,41 @@ function todayISO(): string {
 
 export function defaultShiftConfig(): ShiftConfig {
   return {
+    workType: 'shift',
     cycle: [...DEFAULT_CYCLE],
     startDate: todayISO(),
     dayStart: '07:00',
     dayEnd: '19:30',
+    nightStart: '19:30',
+    nightEnd: '08:00',
+  };
+}
+
+export function officeWorkConfig(): ShiftConfig {
+  const today = new Date();
+  const day = today.getDay();
+  const monOffset = (day + 6) % 7;
+  const monday = new Date(today);
+  monday.setDate(today.getDate() - monOffset);
+  const iso = `${monday.getFullYear()}-${String(monday.getMonth() + 1).padStart(2, '0')}-${String(monday.getDate()).padStart(2, '0')}`;
+  return {
+    workType: 'office',
+    cycle: ['day', 'day', 'day', 'day', 'day', 'off', 'off'],
+    startDate: iso,
+    dayStart: '09:00',
+    dayEnd: '18:00',
+    nightStart: '19:30',
+    nightEnd: '08:00',
+  };
+}
+
+export function flexibleWorkConfig(): ShiftConfig {
+  return {
+    workType: 'flexible',
+    cycle: ['day', 'day', 'day', 'day', 'day', 'day', 'day'],
+    startDate: todayISO(),
+    dayStart: '09:00',
+    dayEnd: '18:00',
     nightStart: '19:30',
     nightEnd: '08:00',
   };
@@ -48,6 +79,7 @@ function daysBetween(startISO: string, target: Date): number {
 }
 
 export function shiftKindForDate(cfg: ShiftConfig, date: Date): ShiftKind {
+  if (cfg.workType === 'flexible') return 'day';
   const len = cfg.cycle.length;
   if (len === 0) return 'off';
   const diff = daysBetween(cfg.startDate, date);
@@ -56,6 +88,7 @@ export function shiftKindForDate(cfg: ShiftConfig, date: Date): ShiftKind {
 }
 
 export function shiftDayForDate(cfg: ShiftConfig, date: Date): ShiftDay {
+  if (cfg.workType === 'flexible') return 'day';
   const raw = shiftKindForDate(cfg, date);
   if (raw !== 'off') return raw;
   const prev = new Date(date);

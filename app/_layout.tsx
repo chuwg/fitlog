@@ -1,12 +1,29 @@
-import { Stack, useRouter } from 'expo-router';
+import { Stack, useRouter, useSegments } from 'expo-router';
 import * as Notifications from 'expo-notifications';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { loadUserProfile } from '../src/services/db';
 import { colors } from '../src/theme/colors';
 
 export default function RootLayout() {
   const router = useRouter();
+  const segments = useSegments();
+  const [checked, setChecked] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const profile = await loadUserProfile();
+        const inOnboarding = segments[0] === 'onboarding';
+        if (!profile.onboarded && !inOnboarding) {
+          router.replace('/onboarding');
+        }
+      } catch {}
+      setChecked(true);
+    })();
+  }, [router, segments]);
 
   useEffect(() => {
     const handleResponse = (response: Notifications.NotificationResponse) => {
@@ -27,6 +44,24 @@ export default function RootLayout() {
     );
     return () => sub.remove();
   }, [router]);
+
+  if (!checked) {
+    return (
+      <SafeAreaProvider>
+        <StatusBar style="light" />
+        <View
+          style={{
+            flex: 1,
+            backgroundColor: colors.bg,
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <ActivityIndicator color={colors.mint} />
+        </View>
+      </SafeAreaProvider>
+    );
+  }
 
   return (
     <SafeAreaProvider>

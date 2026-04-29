@@ -6,6 +6,18 @@
 
 ## 주요 기능
 
+### 온보딩 (첫 실행)
+앱 첫 실행 시 6단계 온보딩으로 모든 핵심 정보를 한 번에 설정합니다.
+
+1. **기본 정보** — 이름, 나이, 성별
+2. **근무 패턴** — 교대근무 / 일반직 / 자유직 중 선택. 교대근무 선택 시 8칸 사이클 직접 편집
+3. **심박 설정** — `220 − 나이` 자동 계산 또는 직접 입력
+4. **보충제** (선택) — 직접 추가하거나 건너뛰면 기본 5종 자동 등록
+5. **러닝화** (선택) — 브랜드/모델/용도/목표 km 입력
+6. **목표 설정** — 인바디 목표 점수 + 5km/10km 목표 시간
+
+완료 시 `user_profile.onboarded = 1` 플래그 저장. 루트 레이아웃이 매 실행마다 플래그를 확인해 미설정 시 `/onboarding`으로 자동 이동합니다.
+
 ### 홈 대시보드
 - 오늘 날짜 + 시간대별 인사말 + 오늘 근무 유형 배지
 - **훈련 준비 점수** (0~100): 4가지 항목 합산 후 교대 근무 보정
@@ -276,10 +288,10 @@ fitlog/
 | 테이블 | 용도 |
 |---|---|
 | `daily_scores` | 매일 점수 기록 (date, total, breakdown, status) |
-| `shift_config` | 교대 사이클, 시작일, 근무 시간 (단일 행) |
+| `shift_config` | 근무 유형(shift/office/flexible), 교대 사이클, 시작일, 근무 시간 (단일 행) |
 | `supplements` | 보충제 목록 (이름, 용량, 타이밍, 교대연동, 활성) |
 | `supplement_base_times` | 4가지 타이밍 기본 시간 (단일 행) |
-| `user_profile` | 이름, 5k/10k 목표, 최대 심박, 인바디 목표 점수 (단일 행) |
+| `user_profile` | 이름, 나이, 성별, 5k/10k 목표, 최대 심박, 인바디 목표 점수, 온보딩 플래그 (단일 행) |
 | `morning_report_config` | 알림 시간, 야간 스킵, +2h 옵션 (단일 행) |
 | `shoes` | 러닝화 (이름, 브랜드, 용도, 누적 km, 목표 km, 활성, 교체 알림 플래그) |
 | `running_sessions` | 러닝 세션 기록 (거리, 시간, 페이스, HR, Zone, 다이내믹스, 신발) |
@@ -366,6 +378,16 @@ npx expo run:ios
 - 홈 추천 훈련에 인바디 목표 부족 시 근력 훈련 권장 자동 추가
 - `recommendWorkout` 시그니처를 옵션 객체로 확장 (`{goal5kSeconds?, inbodyGoalGap?}`)
 - (OCR은 보류, 향후 ML Kit 도입 예정)
+
+### Phase 10 — 온보딩 화면
+- `app/onboarding.tsx` — 6단계 stepper (기본 정보 / 근무 패턴 / 심박 / 보충제 / 러닝화 / 목표)
+- `user_profile`에 `age`, `gender`, `onboarded` 컬럼 추가
+- `shift_config`에 `work_type` 컬럼 추가 — `shift`/`office`/`flexible` 분기
+  - office: 월~금 day, 토일 off cycle 자동 설정
+  - flexible: `shiftDayForDate`가 항상 `day` 반환 (보정 0)
+- 루트 `_layout.tsx`에서 `onboarded` 체크 후 `/onboarding` redirect
+- `UserProfileSection`에 나이/성별 필드 추가 — 온보딩 후에도 편집 가능
+- 보충제 미입력 시 기존 기본 5종(`ensureDefaultSupplements`) fallback
 
 ### Phase 9 — Apple Vision 인바디 OCR
 - 로컬 Expo Module 추가: `modules/fitlog-vision-text/` (Swift + ExpoModulesCore)

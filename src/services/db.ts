@@ -142,8 +142,12 @@ async function getDb(): Promise<SQLite.SQLiteDatabase> {
   await safeAddColumn(db, 'user_profile', 'max_heart_rate', 'INTEGER');
   await safeAddColumn(db, 'user_profile', 'running_goal_10k', 'INTEGER');
   await safeAddColumn(db, 'user_profile', 'inbody_goal_score', 'INTEGER');
+  await safeAddColumn(db, 'user_profile', 'age', 'INTEGER');
+  await safeAddColumn(db, 'user_profile', 'gender', 'TEXT');
+  await safeAddColumn(db, 'user_profile', 'onboarded', 'INTEGER NOT NULL DEFAULT 0');
   await safeAddColumn(db, 'shoes', 'purpose', "TEXT NOT NULL DEFAULT 'general'");
   await safeAddColumn(db, 'shoes', 'replacement_alerted', 'INTEGER NOT NULL DEFAULT 0');
+  await safeAddColumn(db, 'shift_config', 'work_type', "TEXT NOT NULL DEFAULT 'shift'");
   dbInstance = db;
   return db;
 }
@@ -207,6 +211,7 @@ export async function getRecentScores(days: number): Promise<DailyScoreRow[]> {
 }
 
 interface ShiftConfigRow {
+  work_type: string;
   cycle: string;
   start_date: string;
   day_start: string;
@@ -218,11 +223,12 @@ interface ShiftConfigRow {
 export async function loadShiftConfig(): Promise<ShiftConfig | null> {
   const db = await getDb();
   const row = await db.getFirstAsync<ShiftConfigRow>(
-    `SELECT cycle, start_date, day_start, day_end, night_start, night_end FROM shift_config WHERE id = 1`,
+    `SELECT work_type, cycle, start_date, day_start, day_end, night_start, night_end FROM shift_config WHERE id = 1`,
   );
   if (!row) return null;
   const cycle = JSON.parse(row.cycle) as ShiftKind[];
   return {
+    workType: (row.work_type as 'shift' | 'office' | 'flexible') ?? 'shift',
     cycle,
     startDate: row.start_date,
     dayStart: row.day_start,
@@ -235,9 +241,10 @@ export async function loadShiftConfig(): Promise<ShiftConfig | null> {
 export async function saveShiftConfig(cfg: ShiftConfig): Promise<void> {
   const db = await getDb();
   await db.runAsync(
-    `INSERT INTO shift_config (id, cycle, start_date, day_start, day_end, night_start, night_end, updated_at)
-     VALUES (1, ?, ?, ?, ?, ?, ?, ?)
+    `INSERT INTO shift_config (id, work_type, cycle, start_date, day_start, day_end, night_start, night_end, updated_at)
+     VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(id) DO UPDATE SET
+       work_type = excluded.work_type,
        cycle = excluded.cycle,
        start_date = excluded.start_date,
        day_start = excluded.day_start,
@@ -245,6 +252,7 @@ export async function saveShiftConfig(cfg: ShiftConfig): Promise<void> {
        night_start = excluded.night_start,
        night_end = excluded.night_end,
        updated_at = excluded.updated_at`,
+    cfg.workType,
     JSON.stringify(cfg.cycle),
     cfg.startDate,
     cfg.dayStart,
@@ -402,43 +410,55 @@ export async function ensureDefaultSupplements(): Promise<void> {
 
 interface UserProfileRow {
   name: string | null;
+  age: number | null;
+  gender: string | null;
   running_goal_5k: number | null;
   running_goal_10k: number | null;
   max_heart_rate: number | null;
   inbody_goal_score: number | null;
+  onboarded: number;
 }
 
 export async function loadUserProfile(): Promise<UserProfile> {
   const db = await getDb();
   const row = await db.getFirstAsync<UserProfileRow>(
-    `SELECT name, running_goal_5k, running_goal_10k, max_heart_rate, inbody_goal_score FROM user_profile WHERE id = 1`,
+    `SELECT name, age, gender, running_goal_5k, running_goal_10k, max_heart_rate, inbody_goal_score, onboarded FROM user_profile WHERE id = 1`,
   );
   return {
     name: row?.name ?? null,
+    age: row?.age ?? null,
+    gender: (row?.gender as 'male' | 'female' | null) ?? null,
     runningGoal5kSeconds: row?.running_goal_5k ?? null,
     runningGoal10kSeconds: row?.running_goal_10k ?? null,
     maxHeartRate: row?.max_heart_rate ?? null,
     inbodyGoalScore: row?.inbody_goal_score ?? null,
+    onboarded: row?.onboarded === 1,
   };
 }
 
 export async function saveUserProfile(profile: UserProfile): Promise<void> {
   const db = await getDb();
   await db.runAsync(
-    `INSERT INTO user_profile (id, name, running_goal_5k, running_goal_10k, max_heart_rate, inbody_goal_score, updated_at)
-     VALUES (1, ?, ?, ?, ?, ?, ?)
+    `INSERT INTO user_profile (id, name, age, gender, running_goal_5k, running_goal_10k, max_heart_rate, inbody_goal_score, onboarded, updated_at)
+     VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(id) DO UPDATE SET
        name = excluded.name,
+       age = excluded.age,
+       gender = excluded.gender,
        running_goal_5k = excluded.running_goal_5k,
        running_goal_10k = excluded.running_goal_10k,
        max_heart_rate = excluded.max_heart_rate,
        inbody_goal_score = excluded.inbody_goal_score,
+       onboarded = excluded.onboarded,
        updated_at = excluded.updated_at`,
     profile.name,
+    profile.age,
+    profile.gender,
     profile.runningGoal5kSeconds,
     profile.runningGoal10kSeconds,
     profile.maxHeartRate,
     profile.inbodyGoalScore,
+    profile.onboarded ? 1 : 0,
     Date.now(),
   );
 }

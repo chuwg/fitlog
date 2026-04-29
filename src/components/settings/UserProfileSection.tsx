@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Alert, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Card } from '../Card';
 import { colors, radius, spacing } from '../../theme/colors';
-import type { UserProfile } from '../../types';
+import type { Gender, UserProfile } from '../../types';
 
 interface Props {
   profile: UserProfile;
@@ -29,6 +29,7 @@ function parseGoal(input: string): number | null {
 
 export function UserProfileSection({ profile, onChange }: Props) {
   const [name, setName] = useState(profile.name ?? '');
+  const [age, setAge] = useState(profile.age ? String(profile.age) : '');
   const [goal5, setGoal5] = useState(formatGoal(profile.runningGoal5kSeconds));
   const [goal10, setGoal10] = useState(formatGoal(profile.runningGoal10kSeconds));
   const [maxHr, setMaxHr] = useState(
@@ -37,6 +38,24 @@ export function UserProfileSection({ profile, onChange }: Props) {
   const [inbodyGoal, setInbodyGoal] = useState(
     profile.inbodyGoalScore ? String(profile.inbodyGoalScore) : '',
   );
+
+  const commitAge = () => {
+    if (age.trim() === '') {
+      onChange({ ...profile, age: null });
+      return;
+    }
+    const v = parseInt(age, 10);
+    if (isNaN(v) || v < 10 || v > 100) {
+      Alert.alert('값 확인', '10~100 사이의 나이를 입력해주세요.');
+      setAge(profile.age ? String(profile.age) : '');
+      return;
+    }
+    onChange({ ...profile, age: v });
+  };
+
+  const setGender = (g: Gender) => {
+    onChange({ ...profile, gender: profile.gender === g ? null : g });
+  };
 
   const commitName = () => {
     const trimmed = name.trim();
@@ -103,6 +122,49 @@ export function UserProfileSection({ profile, onChange }: Props) {
           style={styles.input}
           returnKeyType="done"
         />
+      </Field>
+      <Field label="나이">
+        <View style={styles.inlineRow}>
+          <TextInput
+            value={age}
+            onChangeText={setAge}
+            onBlur={commitAge}
+            placeholder="30"
+            placeholderTextColor={colors.textMuted}
+            style={[styles.input, styles.inputSmall]}
+            keyboardType="number-pad"
+            returnKeyType="done"
+          />
+          <Text style={styles.unit}>세</Text>
+        </View>
+      </Field>
+      <Field label="성별">
+        <View style={styles.genderRow}>
+          {(
+            [
+              { v: 'male' as Gender, label: '남성' },
+              { v: 'female' as Gender, label: '여성' },
+            ] as const
+          ).map((g) => (
+            <Pressable
+              key={g.v}
+              onPress={() => setGender(g.v)}
+              style={[
+                styles.genderChip,
+                profile.gender === g.v && styles.genderChipActive,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.genderText,
+                  profile.gender === g.v && styles.genderTextActive,
+                ]}
+              >
+                {g.label}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
       </Field>
       <Field label="5km 목표">
         <TextInput
@@ -225,5 +287,29 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 18,
     marginTop: spacing.sm,
+  },
+  genderRow: {
+    flexDirection: 'row',
+    gap: 6,
+  },
+  genderChip: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: 6,
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surfaceAlt,
+  },
+  genderChipActive: {
+    borderColor: colors.mint,
+    backgroundColor: colors.mint + '22',
+  },
+  genderText: {
+    color: colors.textDim,
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  genderTextActive: {
+    color: colors.mint,
   },
 });

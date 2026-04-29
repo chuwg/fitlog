@@ -52,8 +52,10 @@ export interface WeatherInfo {
 
 export type ShiftKind = 'day' | 'night' | 'off';
 export type ShiftDay = ShiftKind | 'post-night';
+export type WorkType = 'shift' | 'office' | 'flexible';
 
 export interface ShiftConfig {
+  workType: WorkType;
   cycle: ShiftKind[];
   startDate: string;
   dayStart: string;
@@ -81,12 +83,17 @@ export interface CycleDay {
   isToday: boolean;
 }
 
+export type Gender = 'male' | 'female';
+
 export interface UserProfile {
   name: string | null;
+  age: number | null;
+  gender: Gender | null;
   runningGoal5kSeconds: number | null;
   runningGoal10kSeconds: number | null;
   maxHeartRate: number | null;
   inbodyGoalScore: number | null;
+  onboarded: boolean;
 }
 
 export interface MorningReportConfig {
