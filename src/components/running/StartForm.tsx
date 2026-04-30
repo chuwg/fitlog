@@ -10,6 +10,7 @@ import {
   View,
 } from 'react-native';
 import { Card } from '../Card';
+import { RecentSessionsCard } from '../RecentSessionsCard';
 import { DistancePicker, type DistanceChoice } from './DistancePicker';
 import { PaceProBar } from './PaceProBar';
 import { ShoePicker } from './ShoePicker';
@@ -189,6 +190,8 @@ export function RunningStartForm({
       <Pressable onPress={startSession} style={styles.startBtn}>
         <Text style={styles.startBtnText}>러닝 시작</Text>
       </Pressable>
+
+      <RecentSessionsCard type="running" reload={reload} />
     </View>
   );
 }

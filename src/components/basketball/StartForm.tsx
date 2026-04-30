@@ -9,6 +9,7 @@ import {
   View,
 } from 'react-native';
 import { Card } from '../Card';
+import { RecentSessionsCard } from '../RecentSessionsCard';
 import { colors, radius, spacing } from '../../theme/colors';
 import {
   getLatestDailyScore,
@@ -143,6 +144,8 @@ export function BasketballStartForm({ reload }: { reload: number }) {
       <Pressable onPress={startSession} style={styles.startBtn}>
         <Text style={styles.startBtnText}>농구 시작</Text>
       </Pressable>
+
+      <RecentSessionsCard type="basketball" reload={reload} />
     </View>
   );
 }
