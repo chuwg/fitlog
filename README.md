@@ -50,9 +50,11 @@
   - 현재 거리/페이스/목표 대비 ±초/예상 완주 시간
   - 심박수 + Zone 인디케이터 (Z1~Z5)
   - PacePro 진행 커서
+  - **백그라운드 GPS 트래킹** — 화면이 꺼져도 측정 계속 (Always 권한 시)
 - 종료 리포트:
   - 거리·시간·평균 페이스, 목표 달성 배지
   - 평균/최고 심박, Zone 분포 바 + 범례
+  - **GPS 경로 지도** (`react-native-maps`) — 시작/종료 마커 + Polyline
   - 케이던스 / GCT / 수직진폭 (Apple Watch 기록 있을 때)
   - 이전 동일 거리 세션 비교 (±10%)
   - 자동 생성 한줄 피드백
@@ -113,13 +115,27 @@
 - **트렌드**: 평균 페이스 / 평균 심박 / GCT / 인바디 점수 라인 차트
 - **인바디**: 위 인바디 트래커 화면
 
+### 세션 히스토리
+- 운동 탭의 러닝/농구 시작 화면 하단에 **최근 5개 세션** 카드
+- "전체 보기 ›" → `/sessions` 화면으로 이동
+- `/sessions`: 통합 리스트 + 필터 칩 [전체 / 러닝 / 농구] (각 카운트 표시)
+- 각 항목 탭 → 기존 러닝/농구 리포트 화면 재사용
+- 빈 상태 안내 + 시작 화면으로 유도
+
+## 브랜드
+
+다크 그라디언트 배경 (#0B0F14 → #1C242F) + 민트 #00D4AA 'F' 글자 + 심박파형 라인 — 피트니스와 건강 모니터링 컨셉.
+
+`scripts/build-icons.mjs`로 SVG 마스터 1개 → iOS / Android adaptive / splash / favicon PNG 일괄 생성. 디자인 수정 시 SVG만 고친 후 스크립트 한 번만 돌리면 됩니다.
+
 ## 기술 스택
 
 - **프레임워크**: React Native 0.74 + Expo SDK 51
 - **네비게이션**: Expo Router (파일 기반)
 - **로컬 DB**: expo-sqlite
 - **알림**: expo-notifications (kind 태그 기반 분리 관리)
-- **위치/GPS**: expo-location + Open-Meteo API
+- **위치/GPS**: expo-location + expo-task-manager (백그라운드) + Open-Meteo API
+- **지도**: react-native-maps (iOS Apple Maps / Android Google Maps)
 - **건강 데이터**: @kingstinct/react-native-healthkit (iOS HealthKit)
 - **동작 감지**: expo-sensors (DeviceMotion / CoreMotion)
 - **시간 입력**: @react-native-community/datetimepicker (네이티브 스피너)
@@ -218,10 +234,12 @@ fitlog/
 │   ├── _layout.tsx                   # 루트 레이아웃 + 알림 응답 핸들러
 │   ├── morning-report.tsx            # 모닝 리포트 상세 화면
 │   ├── running-session.tsx           # 러닝 라이브 세션
-│   ├── running-report.tsx            # 러닝 종료 리포트
+│   ├── running-report.tsx            # 러닝 종료 리포트 (지도 포함)
 │   ├── basketball-session.tsx        # 농구 라이브 세션
 │   ├── basketball-report.tsx         # 농구 종료 리포트
-│   ├── inbody-entry.tsx              # 인바디 수동 입력
+│   ├── inbody-entry.tsx              # 인바디 수동 입력 + OCR
+│   ├── sessions.tsx                  # 통합 세션 히스토리
+│   ├── onboarding.tsx                # 6단계 온보딩
 │   └── (tabs)/
 │       ├── _layout.tsx               # 4개 탭 정의
 │       ├── index.tsx                 # 홈
@@ -237,16 +255,20 @@ fitlog/
 │   │   ├── motion.ts                 # DeviceMotion 점프·스프린트 감지
 │   │   ├── basketball.ts             # 칼로리 / 별점 / 내일 권장
 │   │   ├── inbody.ts                 # 메트릭 / 증감 / 목표 진행도
+│   │   ├── inbody-ocr.ts             # OCR 정규식 파서
 │   │   ├── analytics.ts              # 주간·월간·트렌드 집계 + ATL/CTL
+│   │   ├── calories.ts               # MET × 체중 칼로리 계산
+│   │   ├── dates.ts                  # 요일 라벨 공통
 │   │   └── time.ts                   # HH:MM ↔ Date 변환
 │   ├── services/
 │   │   ├── db.ts                     # SQLite (13개 테이블)
 │   │   ├── health.ts                 # HealthKit + mock fallback
 │   │   ├── shift.ts                  # 사이클 계산, 오늘 근무 유형
-│   │   ├── notifications.ts          # 보충제 + 모닝 리포트 + 신발 알림
-│   │   ├── location.ts               # expo-location + 기본 좌표
+│   │   ├── notifications.ts          # 보충제 + 모닝 + 신발 + OCR 알림
+│   │   ├── location.ts               # expo-location + 제주 애월 기본
 │   │   ├── weather.ts                # Open-Meteo + 대기질
-│   │   └── running.ts                # GPS 워처 + HR 폴링
+│   │   ├── running.ts                # HR 폴링 + 워크아웃 다이내믹스
+│   │   └── run-tracker.ts            # 백그라운드 GPS (TaskManager)
 │   └── components/
 │       ├── Card.tsx
 │       ├── ConditionCard.tsx
@@ -258,13 +280,16 @@ fitlog/
 │       ├── TimePickerRow.tsx
 │       ├── WeatherCard.tsx
 │       ├── WorkoutRecommendCard.tsx
+│       ├── SessionListItem.tsx       # 러닝/농구 통합 리스트 아이템
+│       ├── RecentSessionsCard.tsx    # 운동 탭 임베드 카드
 │       ├── running/
 │       │   ├── StartForm.tsx
 │       │   ├── DistancePicker.tsx
 │       │   ├── ShoePicker.tsx
 │       │   ├── PaceProBar.tsx
 │       │   ├── HrZoneIndicator.tsx
-│       │   └── ZoneDistributionBar.tsx
+│       │   ├── ZoneDistributionBar.tsx
+│       │   └── RouteMap.tsx          # GPS 경로 지도
 │       ├── basketball/
 │       │   ├── StartForm.tsx
 │       │   └── StarRating.tsx
@@ -294,7 +319,7 @@ fitlog/
 | `user_profile` | 이름, 나이, 성별, 5k/10k 목표, 최대 심박, 인바디 목표 점수, 온보딩 플래그 (단일 행) |
 | `morning_report_config` | 알림 시간, 야간 스킵, +2h 옵션 (단일 행) |
 | `shoes` | 러닝화 (이름, 브랜드, 용도, 누적 km, 목표 km, 활성, 교체 알림 플래그) |
-| `running_sessions` | 러닝 세션 기록 (거리, 시간, 페이스, HR, Zone, 다이내믹스, 신발) |
+| `running_sessions` | 러닝 세션 기록 (거리, 시간, 페이스, HR, Zone, 다이내믹스, 신발, GPS 경로) |
 | `basketball_sessions` | 농구 세션 기록 (쿼터 JSON, 점프/스프린트, HR, 별점, 내일 권장) |
 | `basketball_config` | 점프/스프린트 임계값 (단일 행) |
 | `inbody_records` | 인바디 측정 기록 (체중, 골격근량, 체지방량/률, BMI, 점수) |
@@ -378,6 +403,33 @@ npx expo run:ios
 - 홈 추천 훈련에 인바디 목표 부족 시 근력 훈련 권장 자동 추가
 - `recommendWorkout` 시그니처를 옵션 객체로 확장 (`{goal5kSeconds?, inbodyGoalGap?}`)
 - (OCR은 보류, 향후 ML Kit 도입 예정)
+
+### Phase 14 — 백그라운드 GPS 트래킹
+- `expo-task-manager` 도입, `TaskManager.defineTask`로 백그라운드 location task 등록
+- `src/services/run-tracker.ts` — `startLiveTracking` / `stopLiveTracking` / `drainPoints`
+- 화면이 꺼지거나 다른 앱 사용 중에도 GPS 측정 계속
+- 권한 거부 시 포그라운드 추적으로 자동 fallback
+- 세션 화면 상단에 추적 모드 배지 표시 (`🛰 백그라운드 ON` / `ℹ 포그라운드만`)
+- iOS `UIBackgroundModes: ["fetch", "location"]`, `NSLocationAlwaysAndWhenInUseUsageDescription` 추가
+- Android `foregroundService` 알림으로 사용자에게 추적 진행 상황 알림
+
+### Phase 13 — GPS 경로 지도
+- `react-native-maps` 도입
+- 러닝 세션 종료 시 GPS 좌표를 다운샘플링(≤250)해 `route_json` 컬럼에 저장
+- 러닝 리포트에 `MapView` + `Polyline` + 시작(녹)/종료(빨) 마커 카드 추가
+- bounding box 기반 자동 region 계산 (×1.4 패딩)
+
+### Phase 12 — 브랜드 아이콘 + 스플래시
+- 다크 그라디언트 + 민트 'F' + 심박파형 디자인
+- `scripts/build-icons.mjs` — SVG 마스터 → sharp PNG 일괄 변환
+- iOS icon, Android adaptive (투명 배경 안전영역), splash, favicon 모두 생성
+- dev dep으로 sharp만 추가 (이미지 빌드 전용)
+
+### Phase 11 — 세션 히스토리 리스트
+- `app/sessions.tsx` — 통합 리스트 화면, 필터 [전체 / 러닝 / 농구]
+- `src/components/SessionListItem.tsx` — 러닝/농구 통합 리스트 아이템
+- `src/components/RecentSessionsCard.tsx` — 운동 탭에 임베드되는 최근 5개 카드
+- 운동 탭 시작 폼(러닝/농구) 하단에 자동 표시, 탭하면 기존 리포트 재사용
 
 ### Phase 10 — 온보딩 화면
 - `app/onboarding.tsx` — 6단계 stepper (기본 정보 / 근무 패턴 / 심박 / 보충제 / 러닝화 / 목표)
