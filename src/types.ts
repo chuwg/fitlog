@@ -119,6 +119,12 @@ export type HrZone = 1 | 2 | 3 | 4 | 5;
 
 export type ZoneDistribution = Record<HrZone, number>;
 
+export interface RoutePoint {
+  lat: number;
+  lng: number;
+  ts: number;
+}
+
 export interface RunningSession {
   id: number;
   startedAt: number;
@@ -137,6 +143,7 @@ export interface RunningSession {
   targetTimeS: number | null;
   achieved: boolean | null;
   feedback: string | null;
+  route: RoutePoint[] | null;
 }
 
 export interface PaceSegment {

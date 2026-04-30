@@ -39,7 +39,26 @@ import {
   type TrackPoint,
 } from '../src/services/running';
 import { colors, radius, spacing } from '../src/theme/colors';
-import type { ZoneDistribution } from '../src/types';
+import type { RoutePoint, ZoneDistribution } from '../src/types';
+
+const MAX_ROUTE_POINTS = 250;
+
+function downsampleRoute(points: { ts: number; lat: number; lon: number }[]): RoutePoint[] {
+  if (points.length <= MAX_ROUTE_POINTS) {
+    return points.map((p) => ({ lat: p.lat, lng: p.lon, ts: p.ts }));
+  }
+  const step = Math.ceil(points.length / MAX_ROUTE_POINTS);
+  const out: RoutePoint[] = [];
+  for (let i = 0; i < points.length; i += step) {
+    const p = points[i]!;
+    out.push({ lat: p.lat, lng: p.lon, ts: p.ts });
+  }
+  const last = points[points.length - 1]!;
+  if (out[out.length - 1]?.ts !== last.ts) {
+    out.push({ lat: last.lat, lng: last.lon, ts: last.ts });
+  }
+  return out;
+}
 
 const PACE_WINDOW_MS = 30_000;
 const HR_POLL_MS = 5_000;
@@ -199,6 +218,9 @@ export default function RunningSessionScreen() {
         ? distanceM >= targetDistanceM && durationS <= targetTimeS
         : null;
 
+    const route =
+      pointsRef.current.length > 1 ? downsampleRoute(pointsRef.current) : null;
+
     const id = await insertRunningSession({
       startedAt: startedAtRef.current,
       endedAt,
@@ -216,6 +238,7 @@ export default function RunningSessionScreen() {
       targetTimeS: targetTimeS > 0 ? targetTimeS : null,
       achieved,
       feedback,
+      route,
     });
 
     if (shoeId && distanceM > 0) {

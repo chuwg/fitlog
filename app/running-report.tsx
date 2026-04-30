@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Card } from '../src/components/Card';
+import { RouteMap } from '../src/components/running/RouteMap';
 import { ZoneDistributionBar } from '../src/components/running/ZoneDistributionBar';
 import { formatDistance, formatDuration, formatPace } from '../src/lib/pace';
 import {
@@ -142,6 +143,10 @@ export default function RunningReportScreen() {
                   </View>
                 )}
               </Card>
+
+              {session.route && session.route.length >= 2 && (
+                <RouteMap route={session.route} />
+              )}
 
               {session.zoneDistribution && (
                 <Card title="심박 Zone 분포">

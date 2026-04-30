@@ -148,6 +148,7 @@ async function getDb(): Promise<SQLite.SQLiteDatabase> {
   await safeAddColumn(db, 'shoes', 'purpose', "TEXT NOT NULL DEFAULT 'general'");
   await safeAddColumn(db, 'shoes', 'replacement_alerted', 'INTEGER NOT NULL DEFAULT 0');
   await safeAddColumn(db, 'shift_config', 'work_type', "TEXT NOT NULL DEFAULT 'shift'");
+  await safeAddColumn(db, 'running_sessions', 'route_json', 'TEXT');
   dbInstance = db;
   return db;
 }
@@ -622,6 +623,18 @@ interface RunningSessionRow {
   target_time_s: number | null;
   achieved: number | null;
   feedback: string | null;
+  route_json: string | null;
+}
+
+function parseRoute(s: string | null): RunningSession['route'] {
+  if (!s) return null;
+  try {
+    const arr = JSON.parse(s);
+    if (Array.isArray(arr)) return arr;
+    return null;
+  } catch {
+    return null;
+  }
 }
 
 function parseZones(s: string | null): ZoneDistribution | null {
@@ -659,6 +672,7 @@ function rowToSession(r: RunningSessionRow): RunningSession {
     targetTimeS: r.target_time_s,
     achieved: r.achieved === null ? null : r.achieved === 1,
     feedback: r.feedback,
+    route: parseRoute(r.route_json),
   };
 }
 
@@ -669,12 +683,13 @@ export async function insertRunningSession(
   const zonesJson = input.zoneDistribution
     ? JSON.stringify(input.zoneDistribution)
     : null;
+  const routeJson = input.route ? JSON.stringify(input.route) : null;
   const result = await db.runAsync(
     `INSERT INTO running_sessions (
       started_at, ended_at, distance_m, duration_s, avg_pace_s_per_km,
       avg_hr, max_hr, zone_distribution, cadence, gct, vertical_oscillation,
-      shoe_id, target_distance_m, target_time_s, achieved, feedback
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      shoe_id, target_distance_m, target_time_s, achieved, feedback, route_json
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     input.startedAt,
     input.endedAt,
     input.distanceM,
@@ -691,6 +706,7 @@ export async function insertRunningSession(
     input.targetTimeS,
     input.achieved === null ? null : input.achieved ? 1 : 0,
     input.feedback,
+    routeJson,
   );
   return result.lastInsertRowId;
 }
