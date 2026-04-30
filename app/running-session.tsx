@@ -34,10 +34,15 @@ import { sendShoeReplacementAlert } from '../src/services/notifications';
 import {
   fetchLatestHeartRate,
   fetchLatestWorkoutMetrics,
-  startLocationWatcher,
   type HrSample,
-  type TrackPoint,
 } from '../src/services/running';
+import {
+  drainPoints,
+  hasBackgroundPermission,
+  startLiveTracking,
+  stopLiveTracking,
+  type TrackPoint,
+} from '../src/services/run-tracker';
 import { colors, radius, spacing } from '../src/theme/colors';
 import type { RoutePoint, ZoneDistribution } from '../src/types';
 
@@ -98,9 +103,9 @@ export default function RunningSessionScreen() {
   const hrSamplesRef = useRef<HrSample[]>([]);
   const zonesRef = useRef<ZoneDistribution>(emptyZoneDistribution());
   const lastHrTickRef = useRef<number>(Date.now());
-  const watcherRef = useRef<{ remove: () => void } | null>(null);
   const finishedRef = useRef<boolean>(false);
   const [maxHrProfile, setMaxHrProfile] = useState<number | null>(null);
+  const [backgroundEnabled, setBackgroundEnabled] = useState<boolean>(false);
 
   const [stats, setStats] = useState<LiveStats>({
     distanceM: 0,
@@ -135,26 +140,31 @@ export default function RunningSessionScreen() {
     loadUserProfile().then((p) => setMaxHrProfile(p.maxHeartRate));
 
     (async () => {
-      const sub = await startLocationWatcher((p) => {
-        const points = pointsRef.current;
-        const last = points[points.length - 1];
-        if (last) {
-          const seg = haversineMeters(last.lat, last.lon, p.lat, p.lon);
-          if (seg < 100) distanceRef.current += seg;
-        }
-        points.push(p);
-      });
-      if (!sub) {
+      const result = await startLiveTracking();
+      if (!result.granted) {
         setPermissionDenied(true);
         return;
       }
-      watcherRef.current = sub;
+      setBackgroundEnabled(result.background);
     })();
 
     const tick = setInterval(async () => {
       if (finishedRef.current) return;
       const now = Date.now();
       const durationS = Math.floor((now - startedAtRef.current) / 1000);
+
+      const incoming = drainPoints();
+      if (incoming.length > 0) {
+        const points = pointsRef.current;
+        for (const p of incoming) {
+          const last = points[points.length - 1];
+          if (last) {
+            const seg = haversineMeters(last.lat, last.lon, p.lat, p.lon);
+            if (seg < 100) distanceRef.current += seg;
+          }
+          points.push(p);
+        }
+      }
 
       let currentHr: number | null = stats.currentHr;
       if (now - lastHrTickRef.current >= HR_POLL_MS) {
@@ -180,16 +190,26 @@ export default function RunningSessionScreen() {
 
     return () => {
       clearInterval(tick);
-      watcherRef.current?.remove?.();
-      watcherRef.current = null;
+      stopLiveTracking().catch(() => {});
     };
   }, [computeCurrentPace, maxHrProfile, stats.currentHr]);
 
   const finish = useCallback(async () => {
     if (finishedRef.current) return;
     finishedRef.current = true;
-    watcherRef.current?.remove?.();
-    watcherRef.current = null;
+    await stopLiveTracking().catch(() => {});
+    const remaining = drainPoints();
+    if (remaining.length > 0) {
+      const points = pointsRef.current;
+      for (const p of remaining) {
+        const last = points[points.length - 1];
+        if (last) {
+          const seg = haversineMeters(last.lat, last.lon, p.lat, p.lon);
+          if (seg < 100) distanceRef.current += seg;
+        }
+        points.push(p);
+      }
+    }
 
     const endedAt = Date.now();
     const durationS = Math.max(1, Math.floor((endedAt - startedAtRef.current) / 1000));
@@ -311,6 +331,16 @@ export default function RunningSessionScreen() {
             </View>
           )}
 
+          {!permissionDenied && (
+            <View style={styles.bgBadge}>
+              <Text style={styles.bgBadgeText}>
+                {backgroundEnabled
+                  ? '🛰 백그라운드 추적 ON — 화면이 꺼져도 측정 계속'
+                  : 'ℹ 포그라운드만 — 화면이 꺼지면 측정이 멈춥니다'}
+              </Text>
+            </View>
+          )}
+
           <View style={styles.bigBlock}>
             <Text style={styles.label}>현재 거리</Text>
             <Text style={styles.bigValue}>
@@ -404,6 +434,20 @@ const styles = StyleSheet.create({
     color: colors.bad,
     fontSize: 13,
     fontWeight: '600',
+  },
+  bgBadge: {
+    backgroundColor: colors.surfaceAlt,
+    borderRadius: radius.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  bgBadgeText: {
+    color: colors.textDim,
+    fontSize: 11,
+    fontWeight: '600',
+    textAlign: 'center',
   },
   bigBlock: {
     backgroundColor: colors.surface,

@@ -12,6 +12,8 @@
         "NSHealthShareUsageDescription": "훈련 준비 상태를 분석하기 위해 건강 데이터에 접근합니다.",
         "NSHealthUpdateUsageDescription": "운동 기록을 저장하기 위해 건강 데이터를 업데이트합니다.",
         "NSLocationWhenInUseUsageDescription": "현재 위치의 날씨와 미세먼지 정보를 제공합니다.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "러닝 중 화면이 꺼져도 GPS로 거리·페이스를 측정합니다.",
+        "NSLocationAlwaysUsageDescription": "러닝 중 화면이 꺼져도 GPS로 거리·페이스를 측정합니다.",
         "NSCameraUsageDescription": "인바디 결과지를 촬영해 자동으로 항목을 인식합니다.",
         "NSPhotoLibraryUsageDescription": "갤러리에 저장된 인바디 결과지를 불러옵니다."
       }
@@ -28,9 +30,11 @@
         "NSHealthShareUsageDescription": "훈련 준비 상태를 분석하기 위해 건강 데이터에 접근합니다.",
         "NSHealthUpdateUsageDescription": "운동 기록을 저장하기 위해 건강 데이터를 업데이트합니다.",
         "NSLocationWhenInUseUsageDescription": "현재 위치의 날씨와 미세먼지 정보를 제공합니다.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "러닝 중 화면이 꺼져도 GPS로 거리·페이스를 측정합니다.",
+        "NSLocationAlwaysUsageDescription": "러닝 중 화면이 꺼져도 GPS로 거리·페이스를 측정합니다.",
         "NSCameraUsageDescription": "인바디 결과지를 촬영해 자동으로 항목을 인식합니다.",
         "NSPhotoLibraryUsageDescription": "갤러리에 저장된 인바디 결과지를 불러옵니다.",
-        "UIBackgroundModes": ["fetch"]
+        "UIBackgroundModes": ["fetch", "location"]
       },
       "entitlements": {
         "com.apple.developer.healthkit": true,
@@ -60,7 +64,10 @@
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "현재 위치의 날씨와 미세먼지 정보를 제공합니다."
+          "locationWhenInUsePermission": "현재 위치의 날씨와 미세먼지 정보를 제공합니다.",
+          "locationAlwaysAndWhenInUsePermission": "러닝 중 화면이 꺼져도 GPS로 거리·페이스를 측정합니다.",
+          "isIosBackgroundLocationEnabled": true,
+          "isAndroidBackgroundLocationEnabled": true
         }
       ],
       [
