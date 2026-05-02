@@ -7,6 +7,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { BackupSection } from '../../src/components/settings/BackupSection';
 import { BasketballThresholdsSection } from '../../src/components/settings/BasketballThresholdsSection';
 import { MorningReportSection } from '../../src/components/settings/MorningReportSection';
 import { ShiftSection } from '../../src/components/settings/ShiftSection';
@@ -304,6 +305,12 @@ export default function SettingsScreen() {
             <BasketballThresholdsSection
               value={basketballThresh}
               onChange={handleBasketballThresh}
+            />
+            <BackupSection
+              onAfterImport={() => {
+                // 데이터 전체 교체됐으니 화면 리로드를 위해 router 사용 가능하지만,
+                // 단순히 앱 다시 시작 권장 - 현재는 기본값으로 두고 후속 수정 시 router.replace 가능
+              }}
             />
             <Text style={styles.footer}>
               {scheduledSupp !== null && `보충제 알림 ${scheduledSupp}개`}
