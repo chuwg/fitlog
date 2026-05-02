@@ -51,6 +51,7 @@
   - 심박수 + Zone 인디케이터 (Z1~Z5)
   - PacePro 진행 커서
   - **백그라운드 GPS 트래킹** — 화면이 꺼져도 측정 계속 (Always 권한 시)
+  - **일시정지·재개** — 신호등·휴식 시 측정 정확하게 멈춤
 - 종료 리포트:
   - 거리·시간·평균 페이스, 목표 달성 배지
   - 평균/최고 심박, Zone 분포 바 + 범례
@@ -66,7 +67,8 @@
   - 쿼터 번호 + 남은/경과 시간 (총 경과 시간)
   - 실시간 심박 + Zone
   - **CoreMotion 기반 점프/스프린트 자동 카운트** (DeviceMotion 50Hz)
-  - 쿼터 종료 / 세션 종료 두 버튼
+  - 일시정지 / 쿼터 종료 / 세션 종료 세 버튼
+  - **일시정지·재개** — 시간·동작 감지·HR 폴링 모두 멈춤, 쿼터별/세션별 누적 분리
 - 쿼터 종료 모달: 평균/최고 심박, Zone 분포, 점프/스프린트, 한줄 평가
 - 종료 리포트:
   - 총 시간 + 칼로리 (심박 기반 추정)
@@ -112,7 +114,7 @@
 ### 분석 탭 (4-세그먼트)
 - **주간**: 이번 주 거리/시간, 요일별 운동 막대 차트(러닝+농구), ATL/CTL 부하 지수, 균형 +20 이상 시 경고
 - **월간**: 거리/세션/시간/칼로리, 5km·10km 베스트(목표 대비), 자동 하이라이트 (지난달 대비 증감, 베스트 단축, 농구 횟수)
-- **트렌드**: 평균 페이스 / 평균 심박 / GCT / 인바디 점수 라인 차트
+- **트렌드**: 수면 / 평균 페이스 / 평균 심박 / GCT / 인바디 점수 라인 차트 (홈·모닝리포트 진입 시 수면 자동 캐시)
 - **인바디**: 위 인바디 트래커 화면
 
 ### 세션 히스토리
@@ -121,6 +123,12 @@
 - `/sessions`: 통합 리스트 + 필터 칩 [전체 / 러닝 / 농구] (각 카운트 표시)
 - 각 항목 탭 → 기존 러닝/농구 리포트 화면 재사용
 - 빈 상태 안내 + 시작 화면으로 유도
+
+### 데이터 백업 / 가져오기 (설정 탭)
+- 12개 테이블 전체를 **JSON 단일 파일**로 내보내기 → 공유 시트 (iCloud Drive, AirDrop, 메일 등)
+- 백업 파일을 선택해 **트랜잭션 안에서 전체 복원** — 중간 실패 시 ROLLBACK으로 원래 상태 유지
+- 가져오기 전 안전 다이얼로그 + 형식·버전 검증 (`app === 'fitlog'`, `version ≤ 1`)
+- 파일명: `fitlog-backup-YYYYMMDD-HHMM.json`
 
 ## 브랜드
 
@@ -137,6 +145,7 @@
 - **위치/GPS**: expo-location + expo-task-manager (백그라운드) + Open-Meteo API
 - **지도**: react-native-maps (iOS Apple Maps / Android Google Maps)
 - **건강 데이터**: @kingstinct/react-native-healthkit (iOS HealthKit)
+- **백업/공유**: expo-sharing + expo-document-picker + expo-file-system
 - **동작 감지**: expo-sensors (DeviceMotion / CoreMotion)
 - **시간 입력**: @react-native-community/datetimepicker (네이티브 스피너)
 - **언어**: TypeScript (strict mode)
@@ -268,7 +277,8 @@ fitlog/
 │   │   ├── location.ts               # expo-location + 제주 애월 기본
 │   │   ├── weather.ts                # Open-Meteo + 대기질
 │   │   ├── running.ts                # HR 폴링 + 워크아웃 다이내믹스
-│   │   └── run-tracker.ts            # 백그라운드 GPS (TaskManager)
+│   │   ├── run-tracker.ts            # 백그라운드 GPS (TaskManager)
+│   │   └── backup.ts                 # 전체 테이블 export/import
 │   └── components/
 │       ├── Card.tsx
 │       ├── ConditionCard.tsx
@@ -304,7 +314,8 @@ fitlog/
 │           ├── SupplementTimesSection.tsx
 │           ├── SupplementsSection.tsx
 │           ├── ShoesSection.tsx
-│           └── BasketballThresholdsSection.tsx
+│           ├── BasketballThresholdsSection.tsx
+│           └── BackupSection.tsx
 └── package.json
 ```
 
@@ -323,6 +334,7 @@ fitlog/
 | `basketball_sessions` | 농구 세션 기록 (쿼터 JSON, 점프/스프린트, HR, 별점, 내일 권장) |
 | `basketball_config` | 점프/스프린트 임계값 (단일 행) |
 | `inbody_records` | 인바디 측정 기록 (체중, 골격근량, 체지방량/률, BMI, 점수) |
+| `sleep_records` | 일별 수면 시간 캐시 (HealthKit 자동) |
 
 ## 시작하기
 
@@ -404,6 +416,26 @@ npx expo run:ios
 - `recommendWorkout` 시그니처를 옵션 객체로 확장 (`{goal5kSeconds?, inbodyGoalGap?}`)
 - (OCR은 보류, 향후 ML Kit 도입 예정)
 
+### Phase 17 — 데이터 백업 / 가져오기
+- `expo-sharing` + `expo-document-picker` + `expo-file-system` 도입
+- `src/services/backup.ts` — 12개 테이블 전체를 JSON 단일 파일로 직렬화 / 트랜잭션 복원
+- 파일명 자동 생성: `fitlog-backup-YYYYMMDD-HHMM.json`
+- `BackupSection`을 설정 탭 마지막에 추가 (안전 다이얼로그 + 형식·버전 검증)
+- 가져오기 시 BEGIN/COMMIT/ROLLBACK으로 안전성 보장
+
+### Phase 16 — 수면 추세 차트
+- `sleep_records` 테이블 신규
+- 홈·모닝리포트 진입 시 HealthKit `sleepMinutes` 자동 캐시 (`upsertSleepRecord`)
+- 분석 트렌드 뷰 최상단에 수면 카드 추가 (시간 단위 표시)
+- `TrendCard`에 `format` prop 추가 (수면은 `toFixed(1)`)
+
+### Phase 15 — 세션 일시정지 / 재개
+- `run-tracker.ts`: `setTrackingPaused()` 추가, 백그라운드 task가 paused 동안 좌표 push 차단
+- 러닝: 일시정지/종료 두 버튼, GPS·HR·페이스·시간 모두 멈춤
+- 농구: 일시정지/쿼터종료/세션종료 세 버튼, 동작 감지·HR·쿼터·세션 시간 멈춤
+- 일시정지 동안 화면 상단 "일시정지 중" 배지
+- 종료 시 마지막 paused 구간 자동 누적 → 정확한 duration
+
 ### Phase 14 — 백그라운드 GPS 트래킹
 - `expo-task-manager` 도입, `TaskManager.defineTask`로 백그라운드 location task 등록
 - `src/services/run-tracker.ts` — `startLiveTracking` / `stopLiveTracking` / `drainPoints`
@@ -468,7 +500,5 @@ npx expo run:ios
 ## 향후 계획
 
 - watchOS 컴패니언 앱 (홈 화면 점수 표시)
-- 데이터 백업/내보내기 (JSON / CSV export)
-- 세션 도중 일시정지·재개
-- 수면 추세 차트
-- 다국어 (영어) 지원
+- 가져오기 후 화면 자동 재로드 (현재는 사용자 안내만)
+- CSV export 옵션 (현재는 JSON만)
