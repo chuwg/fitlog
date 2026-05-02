@@ -22,6 +22,7 @@ import {
   loadUserProfile,
   listSupplements,
   saveDailyScore,
+  upsertSleepRecord,
 } from '../src/services/db';
 import { fetchHealthSnapshot } from '../src/services/health';
 import {
@@ -78,6 +79,12 @@ async function loadReport(): Promise<ReportData> {
   const shiftDay = shiftDayForDate(effectiveCfg, now);
   const readiness = computeReadiness(snap, shiftDay);
   await saveDailyScore(readiness).catch(() => {});
+  if (snap.sleepMinutes > 0) {
+    await upsertSleepRecord({
+      sleepMinutes: snap.sleepMinutes,
+      deepSleepRatio: snap.deepSleepRatio || null,
+    }).catch(() => {});
+  }
   const cycle = cycleDays(effectiveCfg, now);
   const recommendation = recommendWorkout(readiness, {
     goal5kSeconds: profile.runningGoal5kSeconds,

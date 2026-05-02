@@ -23,6 +23,7 @@ import {
   loadShiftConfig,
   loadUserProfile,
   saveDailyScore,
+  upsertSleepRecord,
 } from '../../src/services/db';
 import { fetchHealthSnapshot } from '../../src/services/health';
 import {
@@ -79,6 +80,12 @@ async function loadHome(): Promise<HomeData> {
   const shiftDay = shiftDayForDate(effectiveCfg, now);
   const readiness = computeReadiness(snap, shiftDay);
   await saveDailyScore(readiness).catch(() => {});
+  if (snap.sleepMinutes > 0) {
+    await upsertSleepRecord({
+      sleepMinutes: snap.sleepMinutes,
+      deepSleepRatio: snap.deepSleepRatio || null,
+    }).catch(() => {});
+  }
   const cycle = cycleDays(effectiveCfg, now);
 
   let weather: WeatherInfo | null = null;

@@ -198,6 +198,13 @@ export interface InbodyRecord {
   score: number | null;
 }
 
+export interface SleepRecord {
+  date: string;
+  sleepMinutes: number;
+  deepSleepRatio: number | null;
+  recordedAt: number;
+}
+
 export type InbodyMetric =
   | 'weightKg'
   | 'skeletalMuscleKg'

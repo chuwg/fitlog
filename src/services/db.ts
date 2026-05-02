@@ -12,6 +12,7 @@ import type {
   ShiftKind,
   Shoe,
   ShoePurpose,
+  SleepRecord,
   Supplement,
   SupplementBaseTimes,
   SupplementTiming,
@@ -137,6 +138,12 @@ async function getDb(): Promise<SQLite.SQLiteDatabase> {
       bmi REAL,
       score INTEGER,
       created_at INTEGER NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS sleep_records (
+      date TEXT PRIMARY KEY,
+      sleep_minutes INTEGER NOT NULL,
+      deep_sleep_ratio REAL,
+      recorded_at INTEGER NOT NULL
     );
   `);
   await safeAddColumn(db, 'user_profile', 'max_heart_rate', 'INTEGER');
@@ -977,4 +984,52 @@ export async function insertInbodyRecord(
 export async function deleteInbodyRecord(id: number): Promise<void> {
   const db = await getDb();
   await db.runAsync(`DELETE FROM inbody_records WHERE id = ?`, id);
+}
+
+interface SleepRow {
+  date: string;
+  sleep_minutes: number;
+  deep_sleep_ratio: number | null;
+  recorded_at: number;
+}
+
+function rowToSleep(r: SleepRow): SleepRecord {
+  return {
+    date: r.date,
+    sleepMinutes: r.sleep_minutes,
+    deepSleepRatio: r.deep_sleep_ratio,
+    recordedAt: r.recorded_at,
+  };
+}
+
+export async function upsertSleepRecord(input: {
+  sleepMinutes: number;
+  deepSleepRatio: number | null;
+  date?: string;
+}): Promise<void> {
+  if (input.sleepMinutes <= 0) return;
+  const date = input.date ?? todayKey();
+  const db = await getDb();
+  await db.runAsync(
+    `INSERT INTO sleep_records (date, sleep_minutes, deep_sleep_ratio, recorded_at)
+     VALUES (?, ?, ?, ?)
+     ON CONFLICT(date) DO UPDATE SET
+       sleep_minutes = excluded.sleep_minutes,
+       deep_sleep_ratio = excluded.deep_sleep_ratio,
+       recorded_at = excluded.recorded_at`,
+    date,
+    Math.round(input.sleepMinutes),
+    input.deepSleepRatio,
+    Date.now(),
+  );
+}
+
+export async function listSleepRecords(limit = 30): Promise<SleepRecord[]> {
+  const db = await getDb();
+  const rows = await db.getAllAsync<SleepRow>(
+    `SELECT date, sleep_minutes, deep_sleep_ratio, recorded_at
+     FROM sleep_records ORDER BY date DESC LIMIT ?`,
+    limit,
+  );
+  return rows.reverse().map(rowToSleep);
 }

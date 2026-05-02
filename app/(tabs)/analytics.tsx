@@ -48,6 +48,7 @@ import {
   listBasketballSessionsBetween,
   listInbodyRecords,
   listRunningSessionsBetween,
+  listSleepRecords,
   loadUserProfile,
 } from '../../src/services/db';
 import { colors, radius, spacing } from '../../src/theme/colors';
@@ -56,6 +57,7 @@ import type {
   InbodyMetric,
   InbodyRecord,
   RunningSession,
+  SleepRecord,
   UserProfile,
 } from '../../src/types';
 
@@ -83,6 +85,7 @@ interface Data {
   allInbody: InbodyRecord[];
   latestInbody: InbodyRecord | null;
   previousInbody: InbodyRecord | null;
+  sleepRecords: SleepRecord[];
   profile: UserProfile;
 }
 
@@ -111,6 +114,7 @@ export default function AnalyticsScreen() {
       allBasketball,
       allInbody,
       latestInbody,
+      sleepRecords,
       profile,
     ] = await Promise.all([
       listRunningSessionsBetween(weekStart.getTime(), weekEnd.getTime()),
@@ -123,6 +127,7 @@ export default function AnalyticsScreen() {
       listAllBasketballSessions(),
       listInbodyRecords(),
       getLatestInbody(),
+      listSleepRecords(30),
       loadUserProfile(),
     ]);
     const previousInbody = latestInbody
@@ -141,6 +146,7 @@ export default function AnalyticsScreen() {
       allInbody,
       latestInbody,
       previousInbody,
+      sleepRecords,
       profile,
     });
   }, []);
@@ -398,9 +404,24 @@ function TrendView({ data }: { data: Data }) {
         .map((r) => ({ ts: r.measuredAt, value: r.score as number })),
     [data.allInbody],
   );
+  const sleepSeries = useMemo(
+    () =>
+      data.sleepRecords.map((r) => ({
+        ts: dateStringToMs(r.date),
+        value: r.sleepMinutes / 60,
+      })),
+    [data.sleepRecords],
+  );
 
   return (
     <>
+      <TrendCard
+        title="수면"
+        unit="시간"
+        color={colors.sleep}
+        series={sleepSeries}
+        format={(v) => v.toFixed(1)}
+      />
       <TrendCard
         title="평균 페이스"
         unit="초/km"
@@ -429,16 +450,23 @@ function TrendView({ data }: { data: Data }) {
   );
 }
 
+function dateStringToMs(date: string): number {
+  const [y, m, d] = date.split('-').map((s) => parseInt(s, 10));
+  return new Date(y!, (m ?? 1) - 1, d ?? 1).getTime();
+}
+
 function TrendCard({
   title,
   unit,
   color,
   series,
+  format,
 }: {
   title: string;
   unit: string;
   color: string;
   series: Array<{ ts: number; value: number }>;
+  format?: (v: number) => string;
 }) {
   if (series.length === 0) {
     return (
@@ -448,8 +476,11 @@ function TrendCard({
     );
   }
   const latest = series[series.length - 1]!.value;
-  const display =
-    title === '평균 페이스' ? formatPace(latest) : Math.round(latest).toString();
+  const display = format
+    ? format(latest)
+    : title === '평균 페이스'
+      ? formatPace(latest)
+      : Math.round(latest).toString();
   return (
     <Card title={title}>
       <View style={styles.trendHeader}>
