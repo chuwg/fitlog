@@ -13,18 +13,21 @@ interface Store {
   buffer: TrackPoint[];
   running: boolean;
   hasBackground: boolean;
+  paused: boolean;
 }
 
 const store: Store = {
   buffer: [],
   running: false,
   hasBackground: false,
+  paused: false,
 };
 
 if (!TaskManager.isTaskDefined(BG_LOCATION_TASK)) {
   TaskManager.defineTask(BG_LOCATION_TASK, ({ data, error }) => {
     if (error) return;
     if (!data) return;
+    if (store.paused) return;
     const locations = (data as { locations?: Location.LocationObject[] })
       .locations;
     if (!locations) return;
@@ -38,6 +41,14 @@ if (!TaskManager.isTaskDefined(BG_LOCATION_TASK)) {
   });
 }
 
+export function setTrackingPaused(paused: boolean): void {
+  store.paused = paused;
+}
+
+export function isTrackingPaused(): boolean {
+  return store.paused;
+}
+
 export interface StartTrackingResult {
   granted: boolean;
   background: boolean;
@@ -47,6 +58,7 @@ export async function startLiveTracking(): Promise<StartTrackingResult> {
   store.buffer = [];
   store.running = false;
   store.hasBackground = false;
+  store.paused = false;
 
   const fg = await Location.requestForegroundPermissionsAsync();
   if (fg.status !== 'granted') {

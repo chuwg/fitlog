@@ -44,6 +44,8 @@ interface QuarterRunState {
   sprints: number;
   hrSamples: number[];
   zones: ZoneDistribution;
+  pausedAt: number | null;
+  totalPausedMs: number;
 }
 
 function makeQuarter(index: number): QuarterRunState {
@@ -54,6 +56,8 @@ function makeQuarter(index: number): QuarterRunState {
     sprints: 0,
     hrSamples: [],
     zones: emptyZoneDistribution(),
+    pausedAt: null,
+    totalPausedMs: 0,
   };
 }
 
@@ -74,6 +78,30 @@ export default function BasketballSessionScreen() {
   const lastHrAtRef = useRef<number>(0);
   const completedRef = useRef<QuarterStats[]>([]);
   const quarterRef = useRef<QuarterRunState>(makeQuarter(0));
+  const sessionPausedAtRef = useRef<number | null>(null);
+  const sessionPausedMsRef = useRef<number>(0);
+  const pausedRef = useRef<boolean>(false);
+  const [paused, setPausedState] = useState<boolean>(false);
+
+  const togglePause = useCallback(() => {
+    const now = Date.now();
+    if (pausedRef.current) {
+      const q = quarterRef.current;
+      if (q.pausedAt) q.totalPausedMs += now - q.pausedAt;
+      q.pausedAt = null;
+      if (sessionPausedAtRef.current) {
+        sessionPausedMsRef.current += now - sessionPausedAtRef.current;
+      }
+      sessionPausedAtRef.current = null;
+      pausedRef.current = false;
+      setPausedState(false);
+    } else {
+      quarterRef.current.pausedAt = now;
+      sessionPausedAtRef.current = now;
+      pausedRef.current = true;
+      setPausedState(true);
+    }
+  }, []);
 
   const [maxHr, setMaxHr] = useState<number | null>(null);
   const [weightKg, setWeightKg] = useState<number | null>(null);
@@ -99,10 +127,12 @@ export default function BasketballSessionScreen() {
         jumpG: thresh.jumpG,
         sprintG: thresh.sprintG,
         onJump: () => {
+          if (pausedRef.current) return;
           quarterRef.current.jumps += 1;
           tick();
         },
         onSprint: () => {
+          if (pausedRef.current) return;
           quarterRef.current.sprints += 1;
           tick();
         },
@@ -115,6 +145,7 @@ export default function BasketballSessionScreen() {
       if (finishedRef.current) return;
       const t = Date.now();
       setNow(t);
+      if (pausedRef.current) return;
 
       if (t - lastHrAtRef.current >= HR_POLL_MS) {
         lastHrAtRef.current = t;
@@ -138,8 +169,19 @@ export default function BasketballSessionScreen() {
   }, [maxHr, tick]);
 
   const quarter = quarterRef.current;
-  const elapsedQuarterS = Math.floor((now - quarter.startedAt) / 1000);
-  const elapsedTotalS = Math.floor((now - sessionStartedAtRef.current) / 1000);
+  const quarterPausedNow =
+    quarter.totalPausedMs + (quarter.pausedAt ? now - quarter.pausedAt : 0);
+  const sessionPausedNow =
+    sessionPausedMsRef.current +
+    (sessionPausedAtRef.current ? now - sessionPausedAtRef.current : 0);
+  const elapsedQuarterS = Math.max(
+    0,
+    Math.floor((now - quarter.startedAt - quarterPausedNow) / 1000),
+  );
+  const elapsedTotalS = Math.max(
+    0,
+    Math.floor((now - sessionStartedAtRef.current - sessionPausedNow) / 1000),
+  );
   const hrZone = hrZoneFor(currentHr ?? 0, maxHr);
 
   const finalizeQuarter = useCallback((): QuarterStats => {
@@ -149,9 +191,15 @@ export default function BasketballSessionScreen() {
       ? Math.round(samples.reduce((a, b) => a + b, 0) / samples.length)
       : null;
     const max = samples.length ? Math.max(...samples) : null;
+    const nowMs = Date.now();
+    const totalPaused =
+      q.totalPausedMs + (q.pausedAt ? nowMs - q.pausedAt : 0);
     return {
       index: q.index,
-      durationS: Math.max(1, Math.floor((Date.now() - q.startedAt) / 1000)),
+      durationS: Math.max(
+        1,
+        Math.floor((nowMs - q.startedAt - totalPaused) / 1000),
+      ),
       avgHr: avg,
       maxHr: max,
       zoneDistribution: samples.length ? q.zones : null,
@@ -189,10 +237,17 @@ export default function BasketballSessionScreen() {
       allQuarters.push(lastStats);
     }
 
+    if (sessionPausedAtRef.current) {
+      sessionPausedMsRef.current += Date.now() - sessionPausedAtRef.current;
+      sessionPausedAtRef.current = null;
+    }
     const endedAt = Date.now();
     const durationS = Math.max(
       1,
-      Math.floor((endedAt - sessionStartedAtRef.current) / 1000),
+      Math.floor(
+        (endedAt - sessionStartedAtRef.current - sessionPausedMsRef.current) /
+          1000,
+      ),
     );
 
     const allHrSamples: number[] = [];
@@ -329,6 +384,11 @@ export default function BasketballSessionScreen() {
           </View>
 
           <View style={styles.btnRow}>
+            <Pressable onPress={togglePause} style={styles.btnPause}>
+              <Text style={styles.btnPauseText}>
+                {paused ? '▶ 재개' : '⏸ 일시정지'}
+              </Text>
+            </Pressable>
             <Pressable onPress={endQuarter} style={styles.btnSecondary}>
               <Text style={styles.btnSecondaryText}>쿼터 종료</Text>
             </Pressable>
@@ -336,6 +396,12 @@ export default function BasketballSessionScreen() {
               <Text style={styles.btnDangerText}>세션 종료</Text>
             </Pressable>
           </View>
+
+          {paused && (
+            <View style={styles.pauseOverlay}>
+              <Text style={styles.pauseOverlayText}>일시정지 중</Text>
+            </View>
+          )}
         </View>
       </SafeAreaView>
 
@@ -492,6 +558,34 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: spacing.sm,
     marginTop: 'auto',
+  },
+  btnPause: {
+    flex: 1,
+    backgroundColor: colors.surfaceAlt,
+    borderWidth: 1,
+    borderColor: colors.warn,
+    borderRadius: radius.lg,
+    paddingVertical: 16,
+    alignItems: 'center',
+  },
+  btnPauseText: {
+    color: colors.warn,
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  pauseOverlay: {
+    position: 'absolute',
+    top: 80,
+    alignSelf: 'center',
+    backgroundColor: colors.warn + 'EE',
+    paddingHorizontal: spacing.lg,
+    paddingVertical: 8,
+    borderRadius: 999,
+  },
+  pauseOverlayText: {
+    color: colors.bg,
+    fontSize: 13,
+    fontWeight: '800',
   },
   btnSecondary: {
     flex: 1,

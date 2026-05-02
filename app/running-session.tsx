@@ -39,6 +39,7 @@ import {
 import {
   drainPoints,
   hasBackgroundPermission,
+  setTrackingPaused,
   startLiveTracking,
   stopLiveTracking,
   type TrackPoint,
@@ -104,8 +105,34 @@ export default function RunningSessionScreen() {
   const zonesRef = useRef<ZoneDistribution>(emptyZoneDistribution());
   const lastHrTickRef = useRef<number>(Date.now());
   const finishedRef = useRef<boolean>(false);
+  const pausedAtRef = useRef<number | null>(null);
+  const totalPausedMsRef = useRef<number>(0);
+  const [paused, setPaused] = useState<boolean>(false);
   const [maxHrProfile, setMaxHrProfile] = useState<number | null>(null);
   const [backgroundEnabled, setBackgroundEnabled] = useState<boolean>(false);
+
+  const elapsedSeconds = useCallback((): number => {
+    const now = Date.now();
+    let pausedMs = totalPausedMsRef.current;
+    if (pausedAtRef.current) pausedMs += now - pausedAtRef.current;
+    return Math.max(0, Math.floor((now - startedAtRef.current - pausedMs) / 1000));
+  }, []);
+
+  const togglePause = useCallback(() => {
+    if (paused) {
+      const now = Date.now();
+      if (pausedAtRef.current) {
+        totalPausedMsRef.current += now - pausedAtRef.current;
+      }
+      pausedAtRef.current = null;
+      setTrackingPaused(false);
+      setPaused(false);
+    } else {
+      pausedAtRef.current = Date.now();
+      setTrackingPaused(true);
+      setPaused(true);
+    }
+  }, [paused]);
 
   const [stats, setStats] = useState<LiveStats>({
     distanceM: 0,
@@ -151,23 +178,25 @@ export default function RunningSessionScreen() {
     const tick = setInterval(async () => {
       if (finishedRef.current) return;
       const now = Date.now();
-      const durationS = Math.floor((now - startedAtRef.current) / 1000);
+      const isPaused = pausedAtRef.current !== null;
 
-      const incoming = drainPoints();
-      if (incoming.length > 0) {
-        const points = pointsRef.current;
-        for (const p of incoming) {
-          const last = points[points.length - 1];
-          if (last) {
-            const seg = haversineMeters(last.lat, last.lon, p.lat, p.lon);
-            if (seg < 100) distanceRef.current += seg;
+      if (!isPaused) {
+        const incoming = drainPoints();
+        if (incoming.length > 0) {
+          const points = pointsRef.current;
+          for (const p of incoming) {
+            const last = points[points.length - 1];
+            if (last) {
+              const seg = haversineMeters(last.lat, last.lon, p.lat, p.lon);
+              if (seg < 100) distanceRef.current += seg;
+            }
+            points.push(p);
           }
-          points.push(p);
         }
       }
 
       let currentHr: number | null = stats.currentHr;
-      if (now - lastHrTickRef.current >= HR_POLL_MS) {
+      if (!isPaused && now - lastHrTickRef.current >= HR_POLL_MS) {
         lastHrTickRef.current = now;
         const bpm = await fetchLatestHeartRate();
         if (bpm) {
@@ -182,8 +211,8 @@ export default function RunningSessionScreen() {
 
       setStats({
         distanceM: distanceRef.current,
-        durationS,
-        currentPace: computeCurrentPace(),
+        durationS: elapsedSeconds(),
+        currentPace: isPaused ? 0 : computeCurrentPace(),
         currentHr,
       });
     }, 1000);
@@ -192,7 +221,7 @@ export default function RunningSessionScreen() {
       clearInterval(tick);
       stopLiveTracking().catch(() => {});
     };
-  }, [computeCurrentPace, maxHrProfile, stats.currentHr]);
+  }, [computeCurrentPace, elapsedSeconds, maxHrProfile, stats.currentHr]);
 
   const finish = useCallback(async () => {
     if (finishedRef.current) return;
@@ -211,8 +240,17 @@ export default function RunningSessionScreen() {
       }
     }
 
+    if (pausedAtRef.current) {
+      totalPausedMsRef.current += Date.now() - pausedAtRef.current;
+      pausedAtRef.current = null;
+    }
     const endedAt = Date.now();
-    const durationS = Math.max(1, Math.floor((endedAt - startedAtRef.current) / 1000));
+    const durationS = Math.max(
+      1,
+      Math.floor(
+        (endedAt - startedAtRef.current - totalPausedMsRef.current) / 1000,
+      ),
+    );
     const distanceM = distanceRef.current;
     const avgPace = distanceM > 0 ? (durationS / distanceM) * 1000 : 0;
 
@@ -404,9 +442,22 @@ export default function RunningSessionScreen() {
             </View>
           )}
 
-          <Pressable onPress={confirmFinish} style={styles.stopBtn}>
-            <Text style={styles.stopText}>종료</Text>
-          </Pressable>
+          <View style={styles.btnRow}>
+            <Pressable onPress={togglePause} style={styles.pauseBtn}>
+              <Text style={styles.pauseText}>
+                {paused ? '▶ 재개' : '⏸ 일시정지'}
+              </Text>
+            </Pressable>
+            <Pressable onPress={confirmFinish} style={styles.stopBtn}>
+              <Text style={styles.stopText}>종료</Text>
+            </Pressable>
+          </View>
+
+          {paused && (
+            <View style={styles.pauseOverlay}>
+              <Text style={styles.pauseOverlayText}>일시정지 중</Text>
+            </View>
+          )}
         </View>
       </SafeAreaView>
     </>
@@ -518,8 +569,27 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
   },
-  stopBtn: {
+  btnRow: {
     marginTop: 'auto',
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  pauseBtn: {
+    flex: 1,
+    backgroundColor: colors.surfaceAlt,
+    borderWidth: 1,
+    borderColor: colors.mint,
+    borderRadius: radius.lg,
+    paddingVertical: 18,
+    alignItems: 'center',
+  },
+  pauseText: {
+    color: colors.mint,
+    fontSize: 16,
+    fontWeight: '800',
+  },
+  stopBtn: {
+    flex: 1,
     backgroundColor: colors.bad,
     borderRadius: radius.lg,
     paddingVertical: 18,
@@ -528,6 +598,20 @@ const styles = StyleSheet.create({
   stopText: {
     color: colors.text,
     fontSize: 17,
+    fontWeight: '800',
+  },
+  pauseOverlay: {
+    position: 'absolute',
+    top: 80,
+    alignSelf: 'center',
+    backgroundColor: colors.warn + 'EE',
+    paddingHorizontal: spacing.lg,
+    paddingVertical: 8,
+    borderRadius: 999,
+  },
+  pauseOverlayText: {
+    color: colors.bg,
+    fontSize: 13,
     fontWeight: '800',
   },
 });
