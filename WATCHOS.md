@@ -115,8 +115,75 @@ iPhone → Watch로 전송되는 형식:
 - 한 번 만든 후엔 `--clean` 없이 `npx expo prebuild` 또는 직접 `npx expo run:ios`만 사용.
 - 또는 추가한 target을 별도 백업해두고 prebuild 후 다시 import.
 
+## 컴플리케이션 통합 (시계 페이스 위젯)
+
+워치 메인 앱과 별개로 시계 페이스에 점수 위젯을 추가하려면 Widget Extension이 필요합니다.
+
+### 자산
+```
+watchos/Complication/
+  └── FitLogComplication.swift   # WidgetKit Provider + 4가지 family Views
+```
+
+지원 family: `accessoryCircular`, `accessoryCorner`, `accessoryInline`, `accessoryRectangular`.
+
+### 통합 단계
+
+#### 1. App Group 만들기 (Apple Developer Portal)
+1. https://developer.apple.com/account → Identifiers → App Groups
+2. **+ → App Group** 등록: `group.com.fitlog.app.shared`
+3. 메인 앱 ID, Watch App ID, Complication Widget ID 모두에 이 App Group 연결
+
+#### 2. Xcode에서 Widget Extension Target 추가
+1. File → New → Target → **watchOS → Widget Extension**
+2. Product Name: `FitLogComplication`
+3. Include Configuration App: **체크 해제** (정적 Configuration 사용)
+4. Bundle ID: `com.fitlog.app.watchkitapp.complication`
+5. Embed in: `FitLogWatch Watch App` 선택
+
+#### 3. Swift 파일 복사
+- `watchos/Complication/FitLogComplication.swift` → 새 Widget target 폴더
+- Xcode가 자동 생성한 기본 Widget 파일은 삭제 (충돌 방지)
+- "Add to target: FitLogComplication" 체크
+
+#### 4. App Group capability 추가
+다음 **3개 모두**에 App Group `group.com.fitlog.app.shared` 추가:
+1. 메인 iOS 앱 (FitLog)
+2. watchOS 앱 (FitLogWatch Watch App)
+3. Widget Extension (FitLogComplication)
+
+각 target → Signing & Capabilities → **+ Capability → App Groups** → 위 그룹 체크.
+
+#### 5. 빌드 + 시계 페이스에 추가
+1. Apple Watch에 빌드 → 컴플리케이션 자동 등록
+2. 시계 페이스 길게 누르기 → Edit → Complications 슬롯 선택 → "핏로그" 찾기
+3. 4가지 형태 중 원하는 것 선택
+
+### 데이터 흐름
+
+```
+iPhone 앱 → WatchConnectivity → 워치 앱
+                                  ↓ applyData
+                                  ↓ UserDefaults(suite: App Group) 저장
+                                  ↓ WidgetCenter.reloadAllTimelines()
+                                  ↓
+                          Widget Extension Provider
+                                  ↓ UserDefaults 읽기
+                                  ↓ Timeline 갱신
+                          시계 페이스에 새 점수 표시
+```
+
+### 디자인
+
+| Family | 표시 |
+|---|---|
+| `accessoryCircular` | 원형 안에 점수 큰 숫자 (색상으로 컨디션 표시) |
+| `accessoryCorner` | 점수 + 상태 라벨 (시계 모서리) |
+| `accessoryInline` | "준비 82" 한 줄 (시계 페이스 상단) |
+| `accessoryRectangular` | 점수 + 상태 + 추천 한줄 |
+
 ## 향후 개선 아이디어
 
-- 시계 페이스 컴플리케이션 (큰 숫자 + 작은 점수)
 - 워치에서 직접 러닝 시작 (HealthKit Workout)
 - 워치 → iPhone 새로고침 요청 (역방향 메시지)
+- 기상 알람 / 햅틱 피드백

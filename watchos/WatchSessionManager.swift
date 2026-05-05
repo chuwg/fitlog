@@ -1,5 +1,14 @@
 import Foundation
 import WatchConnectivity
+import WidgetKit
+
+private enum SharedKeys {
+  static let appGroup = "group.com.fitlog.app.shared"
+  static let score = "complication.score"
+  static let status = "complication.status"
+  static let advice = "complication.advice"
+  static let updatedAt = "complication.updatedAt"
+}
 
 final class WatchSessionManager: NSObject, ObservableObject, WCSessionDelegate {
   static let shared = WatchSessionManager()
@@ -67,5 +76,15 @@ final class WatchSessionManager: NSObject, ObservableObject, WCSessionDelegate {
     if let v = data["advice"] as? String { self.advice = v }
     if let v = data["sleepHours"] as? Double { self.sleepHours = v }
     self.updatedAt = Date()
+    persistForComplication()
+  }
+
+  private func persistForComplication() {
+    guard let defaults = UserDefaults(suiteName: SharedKeys.appGroup) else { return }
+    if let s = self.score { defaults.set(s, forKey: SharedKeys.score) }
+    defaults.set(self.status, forKey: SharedKeys.status)
+    defaults.set(self.advice, forKey: SharedKeys.advice)
+    defaults.set(Date().timeIntervalSince1970 * 1000, forKey: SharedKeys.updatedAt)
+    WidgetCenter.shared.reloadAllTimelines()
   }
 }
