@@ -1,0 +1,10 @@
+{
+  "name": "fitlog-watch-bridge",
+  "version": "1.0.0",
+  "description": "WatchConnectivity bridge between iOS app and watchOS companion",
+  "main": "index.ts",
+  "license": "UNLICENSED",
+  "author": "FitLog",
+  "homepage": "https://github.com/chuwg/fitlog",
+  "private": true
+}

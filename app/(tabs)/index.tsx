@@ -32,6 +32,7 @@ import {
   shiftDayForDate,
   shiftLabel,
 } from '../../src/services/shift';
+import { syncToWatch } from '../../src/services/watch';
 import { fetchWeather } from '../../src/services/weather';
 import { colors, spacing } from '../../src/theme/colors';
 import type {
@@ -95,6 +96,13 @@ async function loadHome(): Promise<HomeData> {
   } catch {
     weatherError = '날씨 정보를 불러오지 못했습니다';
   }
+
+  syncToWatch({
+    score: readiness.total,
+    status: readiness.label,
+    advice: readiness.advice,
+    sleepHours: snap.sleepMinutes > 0 ? snap.sleepMinutes / 60 : undefined,
+  }).catch(() => {});
 
   return {
     snap,
