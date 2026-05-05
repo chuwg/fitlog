@@ -130,6 +130,12 @@
 - 가져오기 전 안전 다이얼로그 + 형식·버전 검증 (`app === 'fitlog'`, `version ≤ 1`)
 - 파일명: `fitlog-backup-YYYYMMDD-HHMM.json`
 
+### Apple Watch 컴패니언
+- iPhone 홈 화면 진입 시 점수/상태/추천/수면을 워치로 자동 sync
+- WatchConnectivity의 `sendMessage` (즉시) + `updateApplicationContext` (다음 부팅) 둘 다 사용
+- 워치 화면: 큰 점수 (색상별 컨디션) + 상태 라벨 + 추천 한줄 + 🌙 수면 시간 + 갱신 시각
+- ⚠ Expo는 watchOS target을 자동 생성하지 않습니다. **`WATCHOS.md` 가이드대로 Xcode에서 1회 수동 통합** 필요
+
 ## 브랜드
 
 다크 그라디언트 배경 (#0B0F14 → #1C242F) + 민트 #00D4AA 'F' 글자 + 심박파형 라인 — 피트니스와 건강 모니터링 컨셉.
@@ -239,6 +245,13 @@ horiz_g = sqrt(x² + y²) / 9.81      (수평 성분)
 
 ```
 fitlog/
+├── modules/                          # 로컬 Expo Modules
+│   ├── fitlog-vision-text/           # Apple Vision OCR
+│   └── fitlog-watch-bridge/          # WatchConnectivity
+├── watchos/                          # watchOS 앱 자산 (Xcode 수동 통합)
+│   ├── FitLogWatchApp.swift
+│   ├── ContentView.swift
+│   └── WatchSessionManager.swift
 ├── app/                              # Expo Router (라우팅)
 │   ├── _layout.tsx                   # 루트 레이아웃 + 알림 응답 핸들러
 │   ├── morning-report.tsx            # 모닝 리포트 상세 화면
@@ -278,7 +291,8 @@ fitlog/
 │   │   ├── weather.ts                # Open-Meteo + 대기질
 │   │   ├── running.ts                # HR 폴링 + 워크아웃 다이내믹스
 │   │   ├── run-tracker.ts            # 백그라운드 GPS (TaskManager)
-│   │   └── backup.ts                 # 전체 테이블 export/import
+│   │   ├── backup.ts                 # 전체 테이블 export/import
+│   │   └── watch.ts                  # Apple Watch 데이터 sync
 │   └── components/
 │       ├── Card.tsx
 │       ├── ConditionCard.tsx
@@ -416,6 +430,14 @@ npx expo run:ios
 - `recommendWorkout` 시그니처를 옵션 객체로 확장 (`{goal5kSeconds?, inbodyGoalGap?}`)
 - (OCR은 보류, 향후 ML Kit 도입 예정)
 
+### Phase 18 — Apple Watch 컴패니언
+- 새 로컬 Expo Module: `modules/fitlog-watch-bridge` (WatchConnectivity Swift wrapper)
+- watchOS 앱 코드: `watchos/` (SwiftUI App + ContentView + WatchSessionManager)
+- `src/services/watch.ts`: `syncToWatch(payload)` — 홈 화면 진입 시 자동 호출
+- `WATCHOS.md`: Xcode에서 watchOS target 추가하는 단계별 가이드
+- iPhone → Watch 페이로드: `{ score, status, advice, sleepHours, updatedAt }`
+- 점수에 따라 워치 화면 숫자 색상 자동 변경 (민트/노랑/주황/빨강)
+
 ### Phase 17 — 데이터 백업 / 가져오기
 - `expo-sharing` + `expo-document-picker` + `expo-file-system` 도입
 - `src/services/backup.ts` — 12개 테이블 전체를 JSON 단일 파일로 직렬화 / 트랜잭션 복원
@@ -499,6 +521,8 @@ npx expo run:ios
 
 ## 향후 계획
 
-- watchOS 컴패니언 앱 (홈 화면 점수 표시)
 - 가져오기 후 화면 자동 재로드 (현재는 사용자 안내만)
 - CSV export 옵션 (현재는 JSON만)
+- 시계 페이스 컴플리케이션 (워치 메인 화면에 점수 작은 위젯)
+- 워치 → iPhone 새로고침 요청 (역방향 메시지)
+- 워치에서 직접 러닝 시작 (HealthKit Workout)
