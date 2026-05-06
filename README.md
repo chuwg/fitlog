@@ -134,6 +134,8 @@
 - iPhone 홈 화면 진입 시 점수/상태/추천/수면을 워치로 자동 sync
 - WatchConnectivity의 `sendMessage` (즉시) + `updateApplicationContext` (다음 부팅) 둘 다 사용
 - 워치 화면: 큰 점수 (색상별 컨디션) + 상태 라벨 + 추천 한줄 + 🌙 수면 시간 + 갱신 시각
+- **시계 페이스 컴플리케이션** (WidgetKit, 4가지 family) — circular / corner / inline / rectangular
+- App Group으로 워치 앱 ↔ 컴플리케이션 데이터 공유, `WidgetCenter.reloadAllTimelines()` 자동 갱신
 - ⚠ Expo는 watchOS target을 자동 생성하지 않습니다. **`WATCHOS.md` 가이드대로 Xcode에서 1회 수동 통합** 필요
 
 ## 브랜드
@@ -251,7 +253,9 @@ fitlog/
 ├── watchos/                          # watchOS 앱 자산 (Xcode 수동 통합)
 │   ├── FitLogWatchApp.swift
 │   ├── ContentView.swift
-│   └── WatchSessionManager.swift
+│   ├── WatchSessionManager.swift
+│   └── Complication/
+│       └── FitLogComplication.swift  # WidgetKit 기반 시계 페이스 컴플리케이션
 ├── app/                              # Expo Router (라우팅)
 │   ├── _layout.tsx                   # 루트 레이아웃 + 알림 응답 핸들러
 │   ├── morning-report.tsx            # 모닝 리포트 상세 화면
@@ -429,6 +433,14 @@ npx expo run:ios
 - 홈 추천 훈련에 인바디 목표 부족 시 근력 훈련 권장 자동 추가
 - `recommendWorkout` 시그니처를 옵션 객체로 확장 (`{goal5kSeconds?, inbodyGoalGap?}`)
 - (OCR은 보류, 향후 ML Kit 도입 예정)
+
+### Phase 19 — 워치 컴플리케이션 + 배포 가이드
+- `watchos/Complication/FitLogComplication.swift` — WidgetKit Provider + 4가지 family Views
+- App Group(`group.com.fitlog.app.shared`)으로 워치 앱과 데이터 공유
+- `WatchSessionManager`가 데이터 수신 시 UserDefaults 저장 + `WidgetCenter.reloadAllTimelines()`
+- `WATCHOS.md`에 Widget Extension 통합 가이드 추가 (App Group + 3 target capability)
+- `DEPLOY.md` (신규): Apple Developer 가입 → App Store Connect → EAS Build / Xcode Archive → TestFlight → 정식 출시 단계별 가이드
+- `eas.json` 빌드 프로파일 (development/preview/production)
 
 ### Phase 18 — Apple Watch 컴패니언
 - 새 로컬 Expo Module: `modules/fitlog-watch-bridge` (WatchConnectivity Swift wrapper)

@@ -26,6 +26,7 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.fitlog.app",
+      "buildNumber": "1",
       "infoPlist": {
         "NSHealthShareUsageDescription": "훈련 준비 상태를 분석하기 위해 건강 데이터에 접근합니다.",
         "NSHealthUpdateUsageDescription": "운동 기록을 저장하기 위해 건강 데이터를 업데이트합니다.",
@@ -46,7 +47,8 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#0B0F14"
       },
-      "package": "com.fitlog.app"
+      "package": "com.fitlog.app",
+      "versionCode": 1
     },
     "web": {
       "bundler": "metro",
